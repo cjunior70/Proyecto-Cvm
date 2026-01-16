@@ -1,0 +1,11 @@
+.servicio-pasado {
+  background-color: #198754 !important;
+  color: white !important;
+  border-radius: 6px;
+}
+
+.servicio-pendiente {
+  background-color: #ffc107 !important;
+  color: black !important;
+  border-radius: 6px;
+}
