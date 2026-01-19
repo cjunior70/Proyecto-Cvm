@@ -16,7 +16,6 @@ export default function DatosPersonales() {
     }
   };
 
-
   useEffect(() => {
     const getUser = async () => {
       const { data, error } = await supabase.auth.getUser();
