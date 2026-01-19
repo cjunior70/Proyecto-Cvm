@@ -3,150 +3,130 @@ import AreaCard from "../Componentes/AreaCard.jsx";
 import { supabase } from "../../../Supabase/cliente.js";
 
 export default function Areas() {
-
   const [aereasGenerales, setAereasGenerales] = useState([]);
   const [misAereas, setMisAereas] = useState([]);
   const [idUsuario, setIdUsuario] = useState(null);
+
+  // ───── MODAL QUITAR ─────
+  const [mostrarModalQuitar, setMostrarModalQuitar] = useState(false);
   const [areaSeleccionada, setAreaSeleccionada] = useState(null);
 
-  /* ===============================
-     🔹 CARGAR DATOS
-  =============================== */
+  // ───── MODAL CREAR ─────
+  const [mostrarModalCrear, setMostrarModalCrear] = useState(false);
+  const [nombreArea, setNombreArea] = useState("");
+  const [descripcionArea, setDescripcionArea] = useState("");
+  const [fotoFile, setFotoFile] = useState(null);
+  const [fotoPreview, setFotoPreview] = useState(null);
+
+  // ─────────────────────────────
+  // CARGAR DATOS
+  // ─────────────────────────────
   const cargarDatos = async () => {
-    try {
-      // 1️⃣ Usuario autenticado
-      const { data: userData, error: userError } =
-        await supabase.auth.getUser();
+    const { data } = await supabase.auth.getUser();
+    if (!data?.user) return;
 
-      if (userError || !userData.user) {
-        console.error("❌ No hay usuario autenticado");
-        return;
-      }
+    const idServidor = data.user.id;
+    setIdUsuario(idServidor);
 
-      const idServidor = userData.user.id;
-      setIdUsuario(idServidor);
+    const { data: misAreasData } = await supabase
+      .from("Servidor_Area")
+      .select(`Aerea ( Id, Nombre, Descripcion, Foto )`)
+      .eq("IdServidor", idServidor);
 
-      // 2️⃣ Mis áreas (JOIN)
-      const { data: misAreasData, error: errorMisAreas } =
-        await supabase
-          .from("Servidor_Area")
-          .select(`
-            Id,
-            Aerea (
-              Id,
-              Nombre,
-              Descripcion,
-              Foto
-            )
-          `)
-          .eq("IdServidor", idServidor);
+    setMisAereas(misAreasData?.map((i) => i.Aerea) || []);
 
-      if (errorMisAreas) {
-        console.error("❌ Error cargando mis áreas:", errorMisAreas);
-        return;
-      }
+    const { data: todas } = await supabase
+      .from("Aerea")
+      .select("*");
 
-      const areasLimpias = misAreasData.map((item) => item.Aerea);
-      setMisAereas(areasLimpias);
-
-      // 3️⃣ Todas las áreas
-      const { data: todasAreas, error } = await supabase
-        .from("Aerea")
-        .select("*");
-
-      if (error) {
-        console.error("❌ Error cargando áreas:", error);
-        return;
-      }
-
-      // 4️⃣ Excluir mis áreas de las disponibles
-      const idsMisAreas = areasLimpias.map((a) => a.Id);
-      const disponibles = todasAreas.filter(
-        (a) => !idsMisAreas.includes(a.Id)
-      );
-
-      setAereasGenerales(disponibles);
-
-    } catch (err) {
-      console.error("❌ Error general:", err);
-    }
+    setAereasGenerales(todas || []);
   };
 
   useEffect(() => {
     cargarDatos();
   }, []);
 
-  /* ===============================
-     🔹 REGISTRARSE EN ÁREA
-  =============================== */
+  // ─────────────────────────────
+  // REGISTRARSE EN ÁREA
+  // ─────────────────────────────
   const registrarArea = async (area) => {
-    const confirmar = window.confirm(
-      "¿Seguro que estás capacitado para apoyar en esta área?"
-    );
+    if (!confirm("¿Seguro que estás capacitado para apoyar en esta área?")) return;
 
-    if (!confirmar) return;
+    await supabase.from("Servidor_Area").insert([
+      {
+        IdServidor: idUsuario,
+        IdAerea: area.Id,
+      },
+    ]);
 
-    try {
-      const { error } = await supabase
-        .from("Servidor_Area")
-        .insert([
-          {
-            IdServidor: idUsuario,
-            IdAerea: area.Id,
-          },
-        ]);
-
-      if (error) {
-        console.error(error);
-        alert("❌ No se pudo registrar en el área");
-        return;
-      }
-
-      alert("✅ Te registraste correctamente");
-      cargarDatos();
-
-    } catch (err) {
-      console.error("❌ Error inesperado:", err);
-    }
+    cargarDatos();
   };
 
-  /* ===============================
-     🔹 SALIR DEL ÁREA
-  =============================== */
-  const salirDelArea = async () => {
-    if (!areaSeleccionada || !idUsuario) return;
-
-    const confirmar = window.confirm(
-      `¿Seguro que deseas salir del área "${areaSeleccionada.Nombre}"?`
-    );
-
-    if (!confirmar) return;
-
-    try {
-      const { error } = await supabase
-        .from("Servidor_Area")
-        .delete()
-        .eq("IdServidor", idUsuario)
-        .eq("IdAerea", areaSeleccionada.Id);
-
-      if (error) {
-        console.error(error);
-        alert("❌ No se pudo salir del área");
-        return;
-      }
-
-      alert("✅ Saliste del área");
-      setAreaSeleccionada(null);
-      cargarDatos();
-
-    } catch (err) {
-      console.error("❌ Error inesperado:", err);
-    }
+  // ─────────────────────────────
+  // QUITAR ÁREA
+  // ─────────────────────────────
+  const abrirModalQuitar = (area) => {
+    setAreaSeleccionada(area);
+    setMostrarModalQuitar(true);
   };
 
-  /* ===============================
-     🔹 UI
-  =============================== */
+  const salirArea = async () => {
+    await supabase
+      .from("Servidor_Area")
+      .delete()
+      .eq("IdServidor", idUsuario)
+      .eq("IdAerea", areaSeleccionada.Id);
+
+    setMostrarModalQuitar(false);
+    setAreaSeleccionada(null);
+    cargarDatos();
+  };
+
+  // ─────────────────────────────
+  // CREAR ÁREA
+  // ─────────────────────────────
+  const manejarFoto = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setFotoFile(file);
+    setFotoPreview(URL.createObjectURL(file));
+  };
+
+  const crearArea = async (e) => {
+    e.preventDefault();
+
+    if (!nombreArea || !descripcionArea || !fotoFile) {
+      alert("Completa todos los campos");
+      return;
+    }
+
+    // ⚠️ Por ahora guardamos la preview (ideal luego usar Storage)
+    await supabase.from("Aerea").insert([
+      {
+        Nombre: nombreArea,
+        Descripcion: descripcionArea,
+        Foto: fotoPreview,
+      },
+    ]);
+
+    setMostrarModalCrear(false);
+    setNombreArea("");
+    setDescripcionArea("");
+    setFotoFile(null);
+    setFotoPreview(null);
+
+    cargarDatos();
+  };
+
+  // ─────────────────────────────
+  // FILTRAR ÁREAS DISPONIBLES
+  // ─────────────────────────────
+  const idsMisAreas = misAereas.map((a) => a.Id);
+  const areasDisponibles = aereasGenerales.filter(
+    (a) => !idsMisAreas.includes(a.Id)
+  );
+
   return (
     <section className="container py-3">
 
@@ -162,7 +142,7 @@ export default function Areas() {
               <div
                 key={area.Id}
                 style={{ cursor: "pointer" }}
-                onClick={() => setAreaSeleccionada(area)}
+                onClick={() => abrirModalQuitar(area)}
               >
                 <AreaCard area={area} />
               </div>
@@ -173,68 +153,131 @@ export default function Areas() {
 
       {/* ───── ÁREAS DISPONIBLES ───── */}
       <section>
-        <h5 className="fw-bold mb-3">Áreas disponibles</h5>
+        <div className="d-flex justify-content-between align-items-center mb-3">
+          <h5 className="fw-bold m-0">Áreas disponibles</h5>
+
+          <button
+            className="btn btn-dark rounded-pill px-4"
+            onClick={() => setMostrarModalCrear(true)}
+          >
+            ➕ Agregar área
+          </button>
+        </div>
 
         <div className="d-flex gap-3 overflow-auto flex-nowrap pb-2">
-          {aereasGenerales.length === 0 ? (
-            <p className="text-muted">No hay áreas disponibles</p>
-          ) : (
-            aereasGenerales.map((area) => (
-              <AreaCard
-                key={area.Id}
-                area={area}
-                mostrarBoton
-                onRegistrar={registrarArea}
-              />
-            ))
-          )}
+          {areasDisponibles.map((area) => (
+            <AreaCard
+              key={area.Id}
+              area={area}
+              mostrarBoton
+              onRegistrar={registrarArea}
+            />
+          ))}
         </div>
       </section>
 
-      {/* ───── MODAL MIS ÁREAS ───── */}
-      {areaSeleccionada && (
-        <div
-          className="modal fade show d-block"
-          style={{ backgroundColor: "rgba(0,0,0,.5)" }}
-        >
+      {/* ───── MODAL CREAR ÁREA ───── */}
+      {mostrarModalCrear && (
+        <div className="modal fade show d-block" style={{ background: "rgba(0,0,0,.5)" }}>
           <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content rounded-4 shadow">
+            <div className="modal-content rounded-4">
+
+              <form onSubmit={crearArea}>
+                <div className="modal-header">
+                  <h5 className="fw-bold">Crear nueva área</h5>
+                  <button
+                    type="button"
+                    className="btn-close"
+                    onClick={() => setMostrarModalCrear(false)}
+                  />
+                </div>
+
+                <div className="modal-body">
+                  <input
+                    className="form-control mb-2"
+                    placeholder="Nombre del área"
+                    value={nombreArea}
+                    onChange={(e) => setNombreArea(e.target.value)}
+                  />
+
+                  <textarea
+                    className="form-control mb-2"
+                    placeholder="Descripción"
+                    value={descripcionArea}
+                    onChange={(e) => setDescripcionArea(e.target.value)}
+                  />
+
+                  <input
+                    type="file"
+                    className="form-control mb-3"
+                    accept="image/*"
+                    onChange={manejarFoto}
+                  />
+
+                  {fotoPreview && (
+                    <img
+                      src={fotoPreview}
+                      alt="preview"
+                      className="img-fluid rounded"
+                    />
+                  )}
+                </div>
+
+                <div className="modal-footer">
+                  <button
+                    type="button"
+                    className="btn btn-outline-secondary"
+                    onClick={() => setMostrarModalCrear(false)}
+                  >
+                    Cancelar
+                  </button>
+
+                  <button className="btn btn-success">
+                    Guardar área
+                  </button>
+                </div>
+              </form>
+
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ───── MODAL QUITAR ÁREA ───── */}
+      {mostrarModalQuitar && areaSeleccionada && (
+        <div className="modal fade show d-block" style={{ background: "rgba(0,0,0,.5)" }}>
+          <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content rounded-4">
 
               <div className="modal-header">
-                <h5 className="modal-title fw-bold">
-                  {areaSeleccionada.Nombre}
-                </h5>
+                <h5 className="fw-bold">{areaSeleccionada.Nombre}</h5>
                 <button
                   className="btn-close"
-                  onClick={() => setAreaSeleccionada(null)}
+                  onClick={() => setMostrarModalQuitar(false)}
                 />
               </div>
 
-              <div className="modal-body text-center">
+              <div className="modal-body">
+                <p>{areaSeleccionada.Descripcion}</p>
                 <img
                   src={areaSeleccionada.Foto}
-                  alt={areaSeleccionada.Nombre}
-                  className="img-fluid rounded mb-3"
-                  style={{ maxHeight: "180px", objectFit: "cover" }}
+                  className="img-fluid rounded"
                 />
-                <p className="text-muted">
-                  {areaSeleccionada.Descripcion}
-                </p>
               </div>
 
-              <div className="modal-footer d-flex justify-content-between">
+              <div className="modal-footer">
                 <button
-                  className="btn btn-outline-secondary rounded-pill px-4"
-                  onClick={() => setAreaSeleccionada(null)}
+                  className="btn btn-outline-secondary"
+                  onClick={() => setMostrarModalQuitar(false)}
                 >
                   Cancelar
                 </button>
 
                 <button
-                  className="btn btn-danger rounded-pill px-4"
-                  onClick={salirDelArea}
+                  className="btn btn-danger"
+                  onClick={salirArea}
                 >
-                  🚪 Salir del área
+                  Salir del área
                 </button>
               </div>
 
