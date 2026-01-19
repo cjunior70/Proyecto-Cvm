@@ -1,64 +1,106 @@
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import AreaCard from "../Componentes/AreaCard.jsx";
+import { supabase } from "../../../Supabase/cliente.js";
 
-export default function Aereas() {
-  const navigate = useNavigate();
+export default function Areas() {
 
-  const areasMock = [
+  const [Aereasgenerales, setAereasgenerales] = useState([]);
+  // const [MisAereas, MisAereas] = useState([]);
+
+
+  useEffect(() => {
+
+    //Funcion para poder mostrar todas las aereas disponibles
+    const cargarAereas = async () => {
+
+      try{
+
+        const {Data, error} = await supabase
+        .from("Aerea")
+        .select("*")
+
+        if(error){
+          console.error("❌ Error cargando servicios:", error);
+          return;
+        }
+
+        // const { misAreas, error: error2 } = await supabase
+        // .from("Servidor_Area")
+        // .select(`
+        //   Id,
+        //   Aerea (
+        //     Id,
+        //     Nombre,
+        //     Descripcion,
+        //     Foto
+        //   )
+        // `)
+        // .eq("IdServidor", user.id);
+
+        // console.log("Estas son mis aereas",misAreas);
+
+        setAereasgenerales(Data);
+        console.log("estas son todas la ereas disponibles del sistema", Data);
+
+      }
+      catch(error)
+      {
+        console.log("Hubo un problema con la peticion de todas las aereas",error);
+      }
+
+    };
+
+    cargarAereas();
+  }, []);
+
+
+
+  // 🔹 DATOS DE PRUEBA
+  const misAreas = [
     {
       id: 1,
       nombre: "Sonido",
-      imagen: "https://tse2.mm.bing.net/th/id/OIP.UVVmDWFw0Hu8vi4a774mewHaE7?rs=1&pid=ImgDetMain&o=7&rm=3",
-    },
-    {
-      id: 2,
-      nombre: "Iluminación",
-      imagen: "https://tse2.mm.bing.net/th/id/OIP.xKEFIll7yCtSgO6BW030oAHaFE?rs=1&pid=ImgDetMain&o=7&rm=3",
-    },
-    {
-      id: 3,
-      nombre: "Cámaras",
-      imagen: "https://tse2.mm.bing.net/th/id/OIP.L8iJHqugZ7cDamKa3AWtLgHaE7?rs=1&pid=ImgDetMain&o=7&rm=3",
+      descripcion: "Mezcla y control de audio",
+      foto: "https://images.unsplash.com/photo-1511379938547-c1f69419868d",
     },
   ];
 
+
+  const registrarArea = (area) => {
+    console.log("Registrándome en área:", area.nombre);
+    alert(`Te registraste en ${area.nombre}`);
+  };
+
   return (
-    <div className="container py-3">
+    <section className="container py-3">
 
-      <h4 className="fw-bold text-center mb-4">
-        Áreas disponibles
-      </h4>
+      {/* ───── MIS ÁREAS ───── */}
+      <section className="mb-4">
+        <h5 className="fw-bold mb-3">Mis áreas</h5>
 
-      <div className="row g-3">
-        {areasMock.map((area) => (
-          <div key={area.id} className="col-6 col-md-4">
-            <div
-              className="card h-100 shadow-sm"
-              style={{ cursor: "pointer" }}
-              onClick={() => navigate(`/areas/${area.id}`)}
-            >
-              <img
-                src={area.imagen}
-                className="card-img-top"
-                alt={area.nombre}
-                style={{ height: "140px", objectFit: "cover" }}
-              />
-              <div className="card-body text-center">
-                <h6 className="fw-semibold mb-0">
-                  {area.nombre}
-                </h6>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
+        <div className="d-flex gap-3 overflow-auto flex-nowrap pb-2">
+          {misAreas.map((area) => (
+            <AreaCard key={area.id} area={area} />
+          ))}
+        </div>
+      </section>
 
-      {/* BOTÓN AGREGAR */}
-      <div className="d-grid mt-4">
-        <button className="btn btn-dark">
-          + Agregar nueva área
-        </button>
-      </div>
+      {/* ───── ÁREAS DISPONIBLES ───── */}
+      <section>
+        <h5 className="fw-bold mb-3">Áreas disponibles</h5>
 
-    </div>
+        <div className="d-flex gap-3 overflow-auto flex-nowrap pb-2">
+          {Aereasgenerales.map((area) => (
+            <AreaCard
+              key={area.Id}
+              area={area}
+              mostrarBoton={true}
+              onRegistrar={registrarArea}
+            />
+          ))}
+        </div>
+      </section>
+
+    </section>
   );
 }

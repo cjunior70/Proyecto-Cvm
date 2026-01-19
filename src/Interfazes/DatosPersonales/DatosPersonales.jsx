@@ -1,8 +1,21 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../../../Supabase/cliente.js";
+import { CerrarSeccion } from "../../../Supabase/CerrarSeccion.js";
+import { useNavigate } from "react-router-dom";
+
 
 export default function DatosPersonales() {
   const [user, setUser] = useState(null);
+  const navigate = useNavigate();
+
+  //Fucnion para poder cerrar la seccion
+  const handleCerrarSesion = async () => {
+    const ok = await CerrarSeccion();
+    if (ok) {
+      navigate("/", { replace: true });
+    }
+  };
+
 
   useEffect(() => {
     const getUser = async () => {
@@ -19,73 +32,80 @@ export default function DatosPersonales() {
 
   if (!user) {
     return (
-      <div className="text-center py-5">
+      <section className="text-center py-5">
         <span className="spinner-border" />
-      </div>
+      </section>
     );
   }
 
-  const {
-    full_name,
-    avatar_url,
-  } = user.user_metadata;
+  const { full_name, avatar_url } = user.user_metadata;
 
   return (
-    <div className="container py-4">
+    <section className="h-100 container py-4 d-flex flex-column justify-content-around">
 
-      <h4 className="fw-bold text-center mb-4">
-        Mis datos personales
-      </h4>
+     <section>
+         <h4 className="fw-bold text-center mb-4">
+          Mis datos personales
+        </h4>
 
-      {/* FOTO */}
-      <div className="d-flex justify-content-center mb-3">
-        <img
-          src={avatar_url}
-          alt="Perfil"
-          className="rounded-circle shadow"
-          style={{
-            width: "120px",
-            height: "120px",
-            objectFit: "cover",
-          }}
-        />
-      </div>
+        {/* FOTO */}
+        <section className="d-flex justify-content-center mb-3">
+          <img
+            src={avatar_url}
+            alt="Perfil"
+            className="rounded-circle shadow"
+            style={{
+              width: "120px",
+              height: "120px",
+              objectFit: "cover",
+            }}
+          />
+        </section>
 
-      {/* DATOS */}
-      <div className="card shadow-sm border-0">
-        <div className="card-body">
+        {/* DATOS */}
+        <section className="card shadow-sm border-0 mb-4">
+          <section className="card-body">
 
-          <div className="mb-3">
-            <small className="text-muted">Nombre</small>
-            <div className="fw-semibold">
-              {full_name}
-            </div>
-          </div>
+            <section className="mb-3">
+              <small className="text-muted">Nombre</small>
+              <section className="fw-semibold">{full_name}</section>
+            </section>
 
-          <div className="mb-3">
-            <small className="text-muted">Correo</small>
-            <div className="fw-semibold">
-              {user.email}
-            </div>
-          </div>
+            <section className="mb-3">
+              <small className="text-muted">Correo</small>
+              <section className="fw-semibold">{user.email}</section>
+            </section>
 
-          <div className="mb-3">
-            <small className="text-muted">Proveedor</small>
-            <div className="fw-semibold text-capitalize">
-              {user.app_metadata.provider}
-            </div>
-          </div>
+            <section className="mb-3">
+              <small className="text-muted">Proveedor</small>
+              <section className="fw-semibold text-capitalize">
+                {user.app_metadata.provider}
+              </section>
+            </section>
 
-          <div>
-            <small className="text-muted">Registrado el</small>
-            <div className="fw-semibold">
-              {new Date(user.created_at).toLocaleDateString("es-CO")}
-            </div>
-          </div>
+            <section>
+              <small className="text-muted">Registrado el</small>
+              <section className="fw-semibold">
+                {new Date(user.created_at).toLocaleDateString("es-CO")}
+              </section>
+            </section>
 
-        </div>
-      </div>
+          </section>
+        </section>
+     </section>
 
-    </div>
+      {/* BOTÓN CERRAR SESIÓN */}
+      <section className="mt-auto pt-4">
+        <section className="d-grid">
+          <button
+            className="btn btn-outline-danger rounded-pill py-2 fw-semibold shadow-sm"
+            onClick={handleCerrarSesion}
+          >
+            🔒 Cerrar sesión
+          </button>
+        </section>
+      </section>
+
+    </section>
   );
 }
