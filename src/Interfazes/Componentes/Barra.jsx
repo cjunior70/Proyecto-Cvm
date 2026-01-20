@@ -29,6 +29,14 @@ export default function Layout() {
             📅 <section>Disponibilidad</section>
           </NavLink>
 
+          {/* <NavLink to="/Servicios" className={({ isActive }) =>
+              `nav-link d-flex flex-column align-items-center ${
+                isActive ? "text-primary fw-semibold" : "text-secondary"
+              }`
+            }>
+            🕛 <section>Servicios</section>
+          </NavLink> */}
+
           <NavLink to="/Aereas" className={({ isActive }) =>
               `nav-link d-flex flex-column align-items-center ${
                 isActive ? "text-primary fw-semibold" : "text-secondary"

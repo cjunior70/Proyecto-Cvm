@@ -8,6 +8,7 @@ import DatosPersonales from './Interfazes/DatosPersonales/DatosPersonales'
 import Disponibilidad from './Interfazes/Disponibilidad/Disponibilidad'
 import Home from './Interfazes/Home/Home'
 import Barra from './Interfazes/Componentes/Barra'
+import Servicios from './Interfazes/Servicios/Servicios'
 
 function App() {
 
@@ -27,6 +28,7 @@ function App() {
               <Route path='/DatosPersonales' element={<DatosPersonales/>}/>
               <Route path='/Disponibilidad' element={<Disponibilidad/>}/>
               <Route path='/Home' element={<Home/>}/>
+              <Route path='/Servicios' element={<Servicios/>}/>
             </Route>
 
         </Routes>

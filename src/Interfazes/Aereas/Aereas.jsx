@@ -156,12 +156,13 @@ export default function Areas() {
         <div className="d-flex justify-content-between align-items-center mb-3">
           <h5 className="fw-bold m-0">Áreas disponibles</h5>
 
-          <button
+          {/* Boton de para poder agregar aereas solo para coordinadores */}
+          {/* <button
             className="btn btn-dark rounded-pill px-4"
             onClick={() => setMostrarModalCrear(true)}
           >
             ➕ Agregar área
-          </button>
+          </button> */}
         </div>
 
         <div className="d-flex gap-3 overflow-auto flex-nowrap pb-2">

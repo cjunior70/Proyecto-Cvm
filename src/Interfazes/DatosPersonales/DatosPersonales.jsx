@@ -51,7 +51,7 @@ export default function DatosPersonales() {
         <section className="d-flex justify-content-center mb-3">
           <img
             src={avatar_url}
-            alt="Perfil"
+            alt=""
             className="rounded-circle shadow"
             style={{
               width: "120px",
