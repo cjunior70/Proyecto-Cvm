@@ -8,10 +8,9 @@ export default function Disponibilidad() {
   const [servicios, setServicios] = useState([]);
   const [serviciosDia, setServiciosDia] = useState([]);
   const [yaRegistrado, setYaRegistrado] = useState(false);
+  const [carga, setcarga] = useState(null);
 
-  // ─────────────────────────────
-  // CARGAR SERVICIOS SEGÚN MIS ÁREAS
-  // ─────────────────────────────
+  //Cargar los servicios q necesiten mis aereas
   const cargarServicios = async () => {
     try {
       // 1️⃣ Usuario autenticado
@@ -81,6 +80,7 @@ export default function Disponibilidad() {
     } catch (err) {
       console.error("❌ Error cargando servicios:", err);
     }
+    setcarga(true);
   };
 
   // ─────────────────────────────
@@ -143,6 +143,9 @@ export default function Disponibilidad() {
   // EFECTOS
   // ─────────────────────────────
   useEffect(() => {
+
+    
+
     cargarServicios();
   }, [fechaSeleccionada.getMonth()]);
 
@@ -164,12 +167,23 @@ export default function Disponibilidad() {
     }
   };
 
+  if (!carga) {
+    return (
+      <section className="text-center py-5">
+        <span className="spinner-border" />
+      </section>
+    );
+  }
+
   return (
     <section className="container py-4">
 
       <h4 className="fw-bold text-center mb-4">
         📅 Disponibilidad según mis áreas
       </h4>
+      <p className="text-muted text-center ">
+        Para descubrir los servicios disponibles, por favor elige un área         
+      </p>
 
       <div className="row g-4">
 
@@ -197,9 +211,11 @@ export default function Disponibilidad() {
               </h5>
 
               {serviciosDia.length === 0 ? (
-                <p className="text-muted">
-                  No hay servicios disponibles este día
-                </p>
+                <section>
+                  <p className="text-muted">
+                    No hay servicios disponibles este día
+                  </p>
+                </section>
               ) : (
                 <>
                   <ul className="list-group list-group-flush">

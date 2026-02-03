@@ -6,6 +6,7 @@ export default function Areas() {
   const [aereasGenerales, setAereasGenerales] = useState([]);
   const [misAereas, setMisAereas] = useState([]);
   const [idUsuario, setIdUsuario] = useState(null);
+  const [carga, setcarga] = useState(null);
 
   // ───── MODAL QUITAR ─────
   const [mostrarModalQuitar, setMostrarModalQuitar] = useState(false);
@@ -40,6 +41,7 @@ export default function Areas() {
       .select("*");
 
     setAereasGenerales(todas || []);
+    setcarga(true);
   };
 
   useEffect(() => {
@@ -50,7 +52,7 @@ export default function Areas() {
   // REGISTRARSE EN ÁREA
   // ─────────────────────────────
   const registrarArea = async (area) => {
-    if (!confirm("¿Seguro que estás capacitado para apoyar en esta área?")) return;
+    if (!confirm("¿Seguro que puedes con esta área? Es clave y no hay margen de error.")) return;
 
     await supabase.from("Servidor_Area").insert([
       {
@@ -58,7 +60,7 @@ export default function Areas() {
         IdAerea: area.Id,
       },
     ]);
-
+     setcarga(false);
     cargarDatos();
   };
 
@@ -126,6 +128,14 @@ export default function Areas() {
   const areasDisponibles = aereasGenerales.filter(
     (a) => !idsMisAreas.includes(a.Id)
   );
+
+   if (!carga) {
+    return (
+      <section className="text-center py-5">
+        <span className="spinner-border" />
+      </section>
+    );
+  }
 
   return (
     <section className="container py-3">

@@ -29,7 +29,7 @@ export default function Login() {
     e.preventDefault();
     console.log({ email, password });
   };
-
+  
   return (
     <div className="container-fluid min-vh-100 d-flex align-items-center justify-content-center bg-light">
       <div className="card border-0 shadow-sm w-100" style={{ maxWidth: "400px" }} >

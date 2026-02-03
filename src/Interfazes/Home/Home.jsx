@@ -1,7 +1,12 @@
-import { useState } from "react";
-import ModalServicio from "../Componentes/ModalServicio.jsx";
+import { useEffect, useState } from "react";
+import { supabase } from "../../../Supabase/cliente";
+import CartaCronograma from "../Componentes/CartaCronograma";
+import { Alert } from "bootstrap";
 
 export default function Home() {
+  const [cronogramas, setCronogramas] = useState([]);
+  const [fechaServicio, setFechaServicio] = useState(null);
+  const [carga, setcarga] = useState(null);
   const [servicioSeleccionado, setServicioSeleccionado] = useState(null);
 
   const hoy = new Date().toLocaleDateString("es-ES", {
@@ -11,63 +16,112 @@ export default function Home() {
     year: "numeric",
   });
 
-  const serviciosMock = [
-    {
-      id: 1,
-      fecha: "2026-01-21",
-      area: "Sonido",
-      servidor: "Carlos Gaviria",
-      jornada: "Mañana",
-      comentario: "Prueba de sonido general",
-      lugar: "Auditorio principal",
-    },
-    {
-      id: 2,
-      fecha: "2026-01-21",
-      area: "Iluminación",
-      servidor: "Yarkit Mendoza",
-      jornada: "Mañana",
-      comentario: "Luces frontales",
-      lugar: "Auditorio principal",
-    },
-  ];
+  const cargarProximoServicio = async (idServidorActual) => {
+   try{
+         if (!idServidorActual) return;
+
+      const { data, error } = await supabase
+        .from("Cronograma")
+        .select(`
+          Id,
+          Servicio (
+            Fecha,
+            Jornada
+          ),
+          Servidor_Area (
+            IdServidor,
+            Aerea (
+              Nombre
+            )
+          )
+        `)
+        .order("Servicio(Fecha)", { ascending: true });
+
+      if (error) {
+        console.error("❌ Error cargando cronograma:", error);
+        return;
+      }
+
+      if (!data || data.length === 0) return;
+
+      // 🔥 Filtrar SOLO servicios del servidor logueado
+      const delServidor = data.filter(
+        (item) => item.Servidor_Area?.IdServidor === idServidorActual
+      );
+
+      if (delServidor.length === 0) return;
+
+      // 🔥 Fecha del servicio más próximo
+      const fecha = delServidor[0].Servicio.Fecha;
+      setFechaServicio(fecha);
+
+      // 🔥 Servicios SOLO de ese día
+      const serviciosDelDia = delServidor.filter(
+        (item) => item.Servicio.Fecha === fecha
+      );
+
+      setCronogramas(serviciosDelDia);
+      setcarga(true);
+   }catch(error){
+      console.log("Ocurrio un Error inesperado",error);
+      Alert("Ocurrio un Error inesperado, Intentelo mas tarde o hable con el progrador");
+   }
+  };
+
+  useEffect(() => {
+  const init = async () => {
+    const { data, error } = await supabase.auth.getUser();
+
+    if (error) {
+      console.error("❌ Error obteniendo usuario:", error);
+      return;
+    }
+
+    const userId = data.user.id;
+
+    // ✅ Usar el ID DIRECTAMENTE
+    await cargarProximoServicio(userId);
+  };
+
+  init();
+}, []);
+
+  if (!carga) {
+    return (
+      <section className="text-center py-5">
+        <span className="spinner-border" />
+      </section>
+    );
+  }
 
   return (
     <div className="container py-3">
 
-      {/* TÍTULO */}
+      {/* FECHA ACTUAL */}
+      <h5 className="fw-bold text-center text-capitalize">
+        {hoy}
+      </h5>
+
       <h4 className="fw-bold text-center mb-1">
-        Próximo servicio
+        🔔 Mis Próximos Servicios 
       </h4>
 
-      {/* FECHA */}
-      <p className="text-center text-muted mb-4">
-        {hoy}
-      </p>
+      <hr />
 
-      {/* TABLA */}
-      <div className="table-responsive">
-        <table className="table table-hover align-middle text-center">
-          <thead className="table-light">
-            <tr>
-              <th>Área</th>
-              <th>Servidor</th>
-            </tr>
-          </thead>
-          <tbody>
-            {serviciosMock.map((servicio) => (
-              <tr
-                key={servicio.id}
-                style={{ cursor: "pointer" }}
-                onClick={() => setServicioSeleccionado(servicio)}
-              >
-                <td>{servicio.area}</td>
-                <td>{servicio.servidor}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {/* SERVICIOS */}
+      {cronogramas.length === 0 && (
+        <p className="text-center text-muted">
+          No tienes servicios asignados
+        </p>
+      )}
+
+      {cronogramas.map((item) => (
+        <CartaCronograma
+          key={item.Id}
+          servicio={item}
+          onClick={() => setServicioSeleccionado(item)}
+        />
+      ))}
 
       {/* MODAL */}
       {servicioSeleccionado && (
