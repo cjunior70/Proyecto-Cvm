@@ -59,8 +59,7 @@ export default function Disponibilidad() {
             Jornada,
             Estado,
             ServicioArea (
-              IdAerea,
-              Cantidad
+              IdArea
             )
           `)
           .gte("Fecha", inicioMes.toISOString().split("T")[0])
@@ -71,7 +70,7 @@ export default function Disponibilidad() {
       // 🔥 Filtrar servicios compatibles con MIS áreas
       const serviciosCompatibles = serviciosData.filter(servicio =>
         servicio.ServicioArea.some(sa =>
-          misAreasIds.includes(sa.IdAerea)
+          misAreasIds.includes(sa.IdArea)
         )
       );
 
@@ -143,9 +142,6 @@ export default function Disponibilidad() {
   // EFECTOS
   // ─────────────────────────────
   useEffect(() => {
-
-    
-
     cargarServicios();
   }, [fechaSeleccionada.getMonth()]);
 

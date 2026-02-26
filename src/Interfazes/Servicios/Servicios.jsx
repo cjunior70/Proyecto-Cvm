@@ -1,288 +1,235 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../../../Supabase/cliente";
+import { generarServiciosDelMes } from "../Servicios/generadorServicios.js";
+import ModalGenerarDeLosServicios from "../Componentes/ModalGenerarDeLosServicios.jsx";
 
 export default function Servicios() {
   const [servicios, setServicios] = useState([]);
+  const [aereasGenerales, setAereasGenerales] = useState([]);
 
-  // MODAL CREAR
+  // ───── ESTADOS MODAL CREAR ─────
   const [mostrarModalCrear, setMostrarModalCrear] = useState(false);
   const [fecha, setFecha] = useState("");
-  const [jornada, setJornada] = useState("");
   const [tipo, setTipo] = useState("");
-  const [estado, setEstado] = useState("Pendiente");
+  const [hora, setHora] = useState("7");
+  const [minutos, setMinutos] = useState("00");
+  const [periodo, setPeriodo] = useState("pm");
   const [comentario, setComentario] = useState("");
+  const [aereasSeleccionadas, setAereasSeleccionadas] = useState([]);
 
-  // MODAL INFO
+  // ───── ESTADOS MODAL INFO (DETALLE) ─────
   const [mostrarModalInfo, setMostrarModalInfo] = useState(false);
   const [servicioSeleccionado, setServicioSeleccionado] = useState(null);
+  const [areasDelServicio, setAreasDelServicio] = useState([]); // Áreas del servicio clickeado
+  const [cargandoAreas, setCargandoAreas] = useState(false);
+
+  const [mostrarModal, setMostrarModal] = useState(false);
 
   // ─────────────────────────────
-  // CARGAR SERVICIOS DEL MES
+  // CARGA DE DATOS INICIAL
   // ─────────────────────────────
   const cargarServicios = async () => {
     const inicioMes = new Date();
     inicioMes.setDate(1);
+    const finMes = new Date(inicioMes.getFullYear(), inicioMes.getMonth() + 1, 0);
 
-    const finMes = new Date(
-      inicioMes.getFullYear(),
-      inicioMes.getMonth() + 1,
-      0
-    );
-
-    const { data, error } = await supabase
+    const { data: dataServicios } = await supabase
       .from("Servicio")
       .select("*")
-      .gte("Fecha", inicioMes.toISOString())
-      .lte("Fecha", finMes.toISOString())
+      .gte("Fecha", inicioMes.toISOString().split('T')[0])
+      .lte("Fecha", finMes.toISOString().split('T')[0])
       .order("Fecha", { ascending: true });
 
-    if (error) {
-      console.error(error);
-      return;
-    }
-
-    setServicios(data);
+    const { data: areas } = await supabase.from("Aerea").select("*").order("Nombre");
+    
+    setAereasGenerales(areas || []);
+    setServicios(dataServicios || []);
   };
 
-  useEffect(() => {
-    let activo = true;
-
-    const cargar = async () => {
-      if (!activo) return;
-      await cargarServicios();
-    };
-
-    cargar();
-
-    return () => {
-      activo = false;
-    };
-  }, []);
-    
-
+  useEffect(() => { cargarServicios(); }, []);
 
   // ─────────────────────────────
-  // CREAR SERVICIO
+  // ABRIR DETALLE CON SUS ÁREAS
   // ─────────────────────────────
+  const abrirDetalleServicio = async (servicio) => {
+    setServicioSeleccionado(servicio);
+    setMostrarModalInfo(true);
+    setCargandoAreas(true);
+    setAreasDelServicio([]);
+
+    // Buscamos las áreas unidas a este servicio
+    const { data, error } = await supabase
+      .from("ServicioArea")
+      .select(`
+        IdArea,
+        Aerea ( Nombre )
+      `)
+      .eq("IdServicio", servicio.Id);
+
+    if (!error && data) {
+      // Formateamos para tener solo los nombres
+      setAreasDelServicio(data.map(item => item.Aerea.Nombre));
+    }
+    setCargandoAreas(false);
+  };
+
+  // ─────────────────────────────
+  // ACCIONES (GENERAR Y CREAR)
+  // ─────────────────────────────
+  const manejarGeneracion = async () => {
+    const generados = await generarServiciosDelMes(); 
+    if (generados) {
+      for (const s of generados) {
+        await supabase.rpc('generar_match_automatico', { p_servicio_id: s.Id });
+      }
+    }
+    setMostrarModal(false);
+    cargarServicios();
+  };
+
   const crearServicio = async (e) => {
     e.preventDefault();
+    const jornada = `${hora}:${minutos} ${periodo}`;
+    const { data: nuevo, error } = await supabase
+      .from("Servicio")
+      .insert({ Fecha: fecha, Jornada: jornada, Tipo: tipo, Estado: "Pendiente", Comentario: comentario })
+      .select().single();
 
-    if (!fecha || !jornada || !tipo) {
-      alert("Completa los campos obligatorios");
-      return;
+    if (!error && aereasSeleccionadas.length > 0) {
+      const rel = aereasSeleccionadas.map(id => ({ IdServicio: nuevo.Id, IdArea: id }));
+      await supabase.from("ServicioArea").insert(rel);
     }
-
-    const { error } = await supabase.from("Servicio").insert([
-      {
-        Fecha: fecha,
-        Jornada: jornada,
-        Tipo: tipo,
-        Estado: estado,
-        Comentario: comentario,
-      },
-    ]);
-
-    if (error) {
-      console.error(error);
-      alert("Error al crear servicio");
-      return;
-    }
-
     setMostrarModalCrear(false);
-    setFecha("");
-    setJornada("");
-    setTipo("");
-    setComentario("");
-    setEstado("Pendiente");
-
     cargarServicios();
   };
 
   return (
     <section className="container py-4">
+      <h4 className="fw-bold text-center mb-4 text-uppercase" style={{letterSpacing: '2px'}}>📅 Gestión de Servicios</h4>
 
-      {/* ───── TÍTULO ───── */}
-      <h4 className="fw-bold text-center mb-4">
-        📅 Gestión de Servicios
-      </h4>
-
-      {/* ───── BOTÓN CREAR ───── */}
-      <div className="d-flex justify-content-end mb-3">
-        <button
-          className="btn btn-dark rounded-pill px-4"
-          onClick={() => setMostrarModalCrear(true)}
-        >
-          ➕ Agregar servicio
-        </button>
+      <div className="d-flex justify-content-center gap-3 mb-4">
+        <button className="btn btn-dark rounded-pill px-4 shadow-sm" onClick={() => setMostrarModal(true)}>⚙ Generar Mes</button>
+        <button className="btn btn-primary rounded-pill px-4 shadow-sm" onClick={() => setMostrarModalCrear(true)}>➕ Nuevo Servicio</button>
       </div>
 
-      {/* ───── LISTA DE SERVICIOS ───── */}
-      <ul className="list-group shadow-sm">
-        {servicios.length === 0 ? (
-          <li className="list-group-item text-center text-muted">
-            No hay servicios este mes
-          </li>
-        ) : (
-          servicios.map((s) => (
-            <li
-              key={s.Id}
-              className="list-group-item d-flex justify-content-between align-items-center"
-              style={{ cursor: "pointer" }}
-              onClick={() => {
-                setServicioSeleccionado(s);
-                setMostrarModalInfo(true);
-              }}
-            >
-              <div>
-                <strong>{s.Tipo}</strong>
+      {/* LISTA DE SERVICIOS */}
+      <div className="row g-3">
+        {servicios.map((s) => (
+          <div key={s.Id} className="col-12 col-md-6 col-lg-4">
+            <div className="card border-0 shadow-sm hover-card" onClick={() => abrirDetalleServicio(s)} style={{ cursor: "pointer", borderRadius: '15px' }}>
+              <div className="card-body">
+                <div className="d-flex justify-content-between align-items-start mb-2">
+                  <h6 className="fw-bold m-0">{s.Tipo}</h6>
+                  <span className={`badge rounded-pill ${s.Estado === "Completado" ? "bg-success" : "bg-warning text-dark"}`}>{s.Estado}</span>
+                </div>
                 <div className="small text-muted">
-                  {new Date(s.Fecha).toLocaleDateString()} · {s.Jornada}
+                  <div><i className="bi bi-calendar3 me-2"></i>{s.Fecha}</div>
+                  <div><i className="bi bi-clock me-2"></i>{s.Jornada}</div>
                 </div>
               </div>
+            </div>
+          </div>
+        ))}
+      </div>
 
-              <span
-                className={`badge rounded-pill
-                  ${s.Estado === "Completado"
-                    ? "bg-success"
-                    : s.Estado === "Cancelado"
-                    ? "bg-danger"
-                    : "bg-warning text-dark"
-                  }`}
-              >
-                {s.Estado}
-              </span>
-            </li>
-          ))
-        )}
-      </ul>
-
-      {/* ───── MODAL CREAR SERVICIO ───── */}
-      {mostrarModalCrear && (
-        <div className="modal fade show d-block" style={{ background: "rgba(0,0,0,.5)" }}>
+      {/* MODAL INFO / DETALLE (CON ÁREAS) */}
+      {mostrarModalInfo && servicioSeleccionado && (
+        <div className="modal fade show d-block" style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}>
           <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content rounded-4">
+            <div className="modal-content border-0 shadow-lg" style={{borderRadius: '20px'}}>
+              <div className="modal-header border-0">
+                <h5 className="fw-bold m-0">{servicioSeleccionado.Tipo}</h5>
+                <button className="btn-close" onClick={() => setMostrarModalInfo(false)}></button>
+              </div>
+              <div className="modal-body pt-0">
+                <div className="mb-3 p-3 bg-light rounded-3">
+                  <div className="small text-muted text-uppercase fw-bold">Información</div>
+                  <div className="mt-1"><strong>Fecha:</strong> {servicioSeleccionado.Fecha}</div>
+                  <div><strong>Jornada:</strong> {servicioSeleccionado.Jornada}</div>
+                  <div className="mt-2 text-secondary italic small">"{servicioSeleccionado.Comentario || "Sin comentarios"}"</div>
+                </div>
 
+                <div className="fw-bold mb-2">Áreas Asignadas:</div>
+                <div className="d-flex flex-wrap gap-2">
+                  {cargandoAreas ? (
+                    <div className="spinner-border spinner-border-sm text-primary"></div>
+                  ) : areasDelServicio.length > 0 ? (
+                    areasDelServicio.map((area, idx) => (
+                      <span key={idx} className="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 rounded-pill">
+                        {area}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-muted small">No hay áreas asignadas.</span>
+                  )}
+                </div>
+              </div>
+              <div className="modal-footer border-0">
+                <button className="btn btn-light rounded-pill px-4" onClick={() => setMostrarModalInfo(false)}>Cerrar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL CREAR (CARTAS) */}
+      {mostrarModalCrear && (
+        <div className="modal fade show d-block" style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}>
+          <div className="modal-dialog modal-dialog-centered modal-lg">
+            <div className="modal-content border-0 shadow-lg" style={{borderRadius: '20px'}}>
               <form onSubmit={crearServicio}>
-                <div className="modal-header">
-                  <h5 className="modal-title fw-bold">
-                    ➕ Nuevo servicio
-                  </h5>
-                  <button
-                    className="btn-close"
-                    onClick={() => setMostrarModalCrear(false)}
-                    type="button"
-                  />
+                <div className="modal-header border-0">
+                  <h5 className="fw-bold">Crear Servicio</h5>
+                  <button className="btn-close" type="button" onClick={() => setMostrarModalCrear(false)} />
                 </div>
-
-                <div className="modal-body">
-                  <input
-                    type="date"
-                    className="form-control mb-2"
-                    value={fecha}
-                    onChange={(e) => setFecha(e.target.value)}
-                  />
-
-                  <input
-                    className="form-control mb-2"
-                    placeholder="Jornada"
-                    value={jornada}
-                    onChange={(e) => setJornada(e.target.value)}
-                  />
-
-                  <input
-                    className="form-control mb-2"
-                    placeholder="Tipo"
-                    value={tipo}
-                    onChange={(e) => setTipo(e.target.value)}
-                  />
-
-                  <textarea
-                    className="form-control"
-                    placeholder="Comentario (opcional)"
-                    value={comentario}
-                    onChange={(e) => setComentario(e.target.value)}
-                  />
+                <div className="modal-body row">
+                  <div className="col-md-5">
+                    <input type="date" className="form-control mb-3" value={fecha} onChange={e => setFecha(e.target.value)} required />
+                    <div className="d-flex gap-2 mb-3">
+                      <input type="number" className="form-control" value={hora} onChange={e => setHora(e.target.value)} />
+                      <select className="form-select" value={periodo} onChange={e => setPeriodo(e.target.value)}>
+                        <option value="am">am</option><option value="pm">pm</option>
+                      </select>
+                    </div>
+                    <input className="form-control mb-3" placeholder="Tipo de Servicio" value={tipo} onChange={e => setTipo(e.target.value)} required />
+                    <textarea className="form-control" placeholder="Comentario..." value={comentario} onChange={e => setComentario(e.target.value)} />
+                  </div>
+                  <div className="col-md-7 border-start">
+                    <label className="fw-bold mb-2 d-block">Selecciona Áreas</label>
+                    <div className="row g-2 overflow-auto" style={{maxHeight: '300px'}}>
+                      {aereasGenerales.map(a => {
+                        const sel = aereasSeleccionadas.includes(a.Id);
+                        return (
+                          <div key={a.Id} className="col-6">
+                            <div 
+                              onClick={() => sel ? setAereasSeleccionadas(aereasSeleccionadas.filter(id => id !== a.Id)) : setAereasSeleccionadas([...aereasSeleccionadas, a.Id])}
+                              className={`card h-100 border-2 select-card p-2 text-center small fw-bold ${sel ? "border-primary bg-primary text-white shadow" : "border-light bg-light"}`}
+                              style={{cursor: 'pointer', transition: '0.2s'}}
+                            >
+                              {a.Nombre}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
-
-                <div className="modal-footer">
-                  <button
-                    type="button"
-                    className="btn btn-outline-secondary"
-                    onClick={() => setMostrarModalCrear(false)}
-                  >
-                    Cancelar
-                  </button>
-
-                  <button className="btn btn-success">
-                    Guardar
-                  </button>
+                <div className="modal-footer border-0">
+                  <button type="button" className="btn btn-light rounded-pill" onClick={() => setMostrarModalCrear(false)}>Cancelar</button>
+                  <button className="btn btn-dark rounded-pill px-4">Guardar</button>
                 </div>
               </form>
-
             </div>
           </div>
         </div>
       )}
 
-      {/* ───── MODAL INFO SERVICIO ───── */}
-      {mostrarModalInfo && servicioSeleccionado && (
-        <div className="modal fade show d-block" style={{ background: "rgba(0,0,0,.5)" }}>
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content rounded-4">
+      <ModalGenerarDeLosServicios visible={mostrarModal} onClose={() => setMostrarModal(false)} onConfirm={manejarGeneracion} />
 
-              <div className="modal-header">
-                <h5 className="modal-title fw-bold">
-                  📄 Detalle del servicio
-                </h5>
-                <button
-                  className="btn-close"
-                  onClick={() => setMostrarModalInfo(false)}
-                />
-              </div>
-
-              <div className="modal-body">
-                <p><strong>Tipo:</strong> {servicioSeleccionado.Tipo}</p>
-                <p><strong>Fecha:</strong> {new Date(servicioSeleccionado.Fecha).toLocaleDateString()}</p>
-                <p><strong>Jornada:</strong> {servicioSeleccionado.Jornada}</p>
-                <p><strong>Estado:</strong> {servicioSeleccionado.Estado}</p>
-
-                {servicioSeleccionado.Comentario && (
-                  <p><strong>Comentario:</strong> {servicioSeleccionado.Comentario}</p>
-                )}
-              </div>
-
-              <div className="modal-footer">
-                <button
-                  className="btn btn-outline-danger me-auto"
-                  onClick={async () => {
-                    const confirmar = confirm("¿Eliminar este servicio?");
-                    if (!confirmar) return;
-
-                    await supabase
-                      .from("Servicio")
-                      .delete()
-                      .eq("Id", servicioSeleccionado.Id);
-
-                    setMostrarModalInfo(false);
-                    cargarServicios();
-                  }}
-                >
-                  🗑 Eliminar
-                </button>
-
-                <button
-                  className="btn btn-secondary"
-                  onClick={() => setMostrarModalInfo(false)}
-                >
-                  Cerrar
-                </button>
-              </div>
-
-            </div>
-          </div>
-        </div>
-      )}
-
+      <style>{`
+        .hover-card:hover { transform: translateY(-5px); transition: 0.3s; box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important; }
+        .select-card:active { transform: scale(0.95); }
+      `}</style>
     </section>
   );
 }

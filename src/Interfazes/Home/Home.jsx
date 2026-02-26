@@ -123,13 +123,6 @@ export default function Home() {
         />
       ))}
 
-      {/* MODAL */}
-      {servicioSeleccionado && (
-        <ModalServicio
-          servicio={servicioSeleccionado}
-          onClose={() => setServicioSeleccionado(null)}
-        />
-      )}
     </div>
   );
 }

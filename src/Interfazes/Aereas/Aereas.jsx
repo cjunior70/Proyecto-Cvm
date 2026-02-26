@@ -12,13 +12,6 @@ export default function Areas() {
   const [mostrarModalQuitar, setMostrarModalQuitar] = useState(false);
   const [areaSeleccionada, setAreaSeleccionada] = useState(null);
 
-  // ───── MODAL CREAR ─────
-  const [mostrarModalCrear, setMostrarModalCrear] = useState(false);
-  const [nombreArea, setNombreArea] = useState("");
-  const [descripcionArea, setDescripcionArea] = useState("");
-  const [fotoFile, setFotoFile] = useState(null);
-  const [fotoPreview, setFotoPreview] = useState(null);
-
   // ─────────────────────────────
   // CARGAR DATOS
   // ─────────────────────────────
@@ -85,43 +78,6 @@ export default function Areas() {
   };
 
   // ─────────────────────────────
-  // CREAR ÁREA
-  // ─────────────────────────────
-  const manejarFoto = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    setFotoFile(file);
-    setFotoPreview(URL.createObjectURL(file));
-  };
-
-  const crearArea = async (e) => {
-    e.preventDefault();
-
-    if (!nombreArea || !descripcionArea || !fotoFile) {
-      alert("Completa todos los campos");
-      return;
-    }
-
-    // ⚠️ Por ahora guardamos la preview (ideal luego usar Storage)
-    await supabase.from("Aerea").insert([
-      {
-        Nombre: nombreArea,
-        Descripcion: descripcionArea,
-        Foto: fotoPreview,
-      },
-    ]);
-
-    setMostrarModalCrear(false);
-    setNombreArea("");
-    setDescripcionArea("");
-    setFotoFile(null);
-    setFotoPreview(null);
-
-    cargarDatos();
-  };
-
-  // ─────────────────────────────
   // FILTRAR ÁREAS DISPONIBLES
   // ─────────────────────────────
   const idsMisAreas = misAereas.map((a) => a.Id);
@@ -165,14 +121,6 @@ export default function Areas() {
       <section>
         <div className="d-flex justify-content-between align-items-center mb-3">
           <h5 className="fw-bold m-0">Áreas disponibles</h5>
-
-          {/* Boton de para poder agregar aereas solo para coordinadores */}
-          {/* <button
-            className="btn btn-dark rounded-pill px-4"
-            onClick={() => setMostrarModalCrear(true)}
-          >
-            ➕ Agregar área
-          </button> */}
         </div>
 
         <div className="d-flex gap-3 overflow-auto flex-nowrap pb-2">
@@ -186,73 +134,6 @@ export default function Areas() {
           ))}
         </div>
       </section>
-
-      {/* ───── MODAL CREAR ÁREA ───── */}
-      {mostrarModalCrear && (
-        <div className="modal fade show d-block" style={{ background: "rgba(0,0,0,.5)" }}>
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content rounded-4">
-
-              <form onSubmit={crearArea}>
-                <div className="modal-header">
-                  <h5 className="fw-bold">Crear nueva área</h5>
-                  <button
-                    type="button"
-                    className="btn-close"
-                    onClick={() => setMostrarModalCrear(false)}
-                  />
-                </div>
-
-                <div className="modal-body">
-                  <input
-                    className="form-control mb-2"
-                    placeholder="Nombre del área"
-                    value={nombreArea}
-                    onChange={(e) => setNombreArea(e.target.value)}
-                  />
-
-                  <textarea
-                    className="form-control mb-2"
-                    placeholder="Descripción"
-                    value={descripcionArea}
-                    onChange={(e) => setDescripcionArea(e.target.value)}
-                  />
-
-                  <input
-                    type="file"
-                    className="form-control mb-3"
-                    accept="image/*"
-                    onChange={manejarFoto}
-                  />
-
-                  {fotoPreview && (
-                    <img
-                      src={fotoPreview}
-                      alt="preview"
-                      className="img-fluid rounded"
-                    />
-                  )}
-                </div>
-
-                <div className="modal-footer">
-                  <button
-                    type="button"
-                    className="btn btn-outline-secondary"
-                    onClick={() => setMostrarModalCrear(false)}
-                  >
-                    Cancelar
-                  </button>
-
-                  <button className="btn btn-success">
-                    Guardar área
-                  </button>
-                </div>
-              </form>
-
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ───── MODAL QUITAR ÁREA ───── */}
       {mostrarModalQuitar && areaSeleccionada && (
