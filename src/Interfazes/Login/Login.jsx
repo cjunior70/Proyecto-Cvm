@@ -55,7 +55,7 @@ export default function Login() {
             Continuar con Google
           </button>
 
-          <div className="text-center text-muted small mb-3">
+          {/* <div className="text-center text-muted small mb-3">
             o inicia sesión con tu correo
           </div>
 
@@ -87,7 +87,7 @@ export default function Login() {
             <button className="btn btn-dark w-100 py-2">
               Ingresar
             </button>
-          </form>
+          </form> */}
 
           <div className="text-center mt-4">
             <small className="text-muted">

@@ -9,6 +9,9 @@ import Disponibilidad from './Interfazes/Disponibilidad/Disponibilidad'
 import Home from './Interfazes/Home/Home'
 import Barra from './Interfazes/Componentes/Barra'
 import Servicios from './Interfazes/Servicios/Servicios'
+import Servidores from './Interfazes/Servidores/Servidores'
+import AreasAdmin from './Interfazes/Aereas/AreasAdmin'
+import Homeadmin from './Interfazes/Home/Homeadmin'
 
 function App() {
 
@@ -24,11 +27,14 @@ function App() {
             {/* Rutas */}
             <Route element={<Barra/>}>
               <Route path='/Aereas' element={<Aereas/>}/>
+              <Route path='/AereasAdmins' element={<AreasAdmin/>}/>
               <Route path='/Cronograma' element={<Cronograma/>}/>
               <Route path='/DatosPersonales' element={<DatosPersonales/>}/>
               <Route path='/Disponibilidad' element={<Disponibilidad/>}/>
               <Route path='/Home' element={<Home/>}/>
+              <Route path='/Homeadmin' element={<Homeadmin/>}/>
               <Route path='/Servicios' element={<Servicios/>}/>
+              <Route path='/Servidores' element={<Servidores/>}/>
             </Route>
 
         </Routes>
