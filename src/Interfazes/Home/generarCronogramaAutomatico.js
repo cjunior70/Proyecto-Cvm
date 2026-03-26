@@ -1,6 +1,9 @@
 import { supabase } from "../../../Supabase/cliente";
 
 export const generarCronogramaAutomatico = async (servicios, alTerminar) => {
+
+  console.log("Este es el id de las  9 : " , servicios);
+
   if (!servicios || servicios.length === 0) return;
 
   const confirmacion = window.confirm("¿Deseas asignar servidores automáticamente a estos servicios?");
