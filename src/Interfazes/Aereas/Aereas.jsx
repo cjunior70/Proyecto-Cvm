@@ -149,9 +149,10 @@ export default function Areas() {
                 />
               </div>
 
-              <div className="modal-body">
+              <div className="modal-body d-flex flex-column align-items-center ">
                 <p>{areaSeleccionada.Descripcion}</p>
                 <img
+                  style={{ height: "250px", objectFit: "cover" }}
                   src={areaSeleccionada.Foto}
                   className="img-fluid rounded"
                 />
