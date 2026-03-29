@@ -1,257 +1,178 @@
 import { useEffect, useState } from "react";
-import Calendar from "react-calendar";
-import "react-calendar/dist/Calendar.css";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "../../../Supabase/cliente";
 
 export default function Disponibilidad() {
-  const [fechaSeleccionada, setFechaSeleccionada] = useState(new Date());
-  const [servicios, setServicios] = useState([]);
-  const [serviciosDia, setServiciosDia] = useState([]);
-  const [yaRegistrado, setYaRegistrado] = useState(false);
-  const [carga, setcarga] = useState(null);
+  const [diasDisponibles, setDiasDisponibles] = useState([]);
+  const [disponibilidadesUser, setDisponibilidadesUser] = useState([]);
+  const [carga, setCarga] = useState(false);
+  const navigate = useNavigate();
 
-  //Cargar los servicios q necesiten mis aereas
-  const cargarServicios = async () => {
+  // 1. Inicialización y Carga de Datos
+  const inicializar = async () => {
     try {
-      // 1️⃣ Usuario autenticado
       const { data: userData } = await supabase.auth.getUser();
       if (!userData?.user) return;
+      const userId = userData.user.id;
 
-      const idUsuario = userData.user.id;
+      // VALIDACIÓN: ¿Tiene áreas asignadas?
+      const { data: areas } = await supabase
+        .from("Servidor_Area")
+        .select("IdAerea")
+        .eq("IdServidor", userId);
 
-      // 2️⃣ Áreas del usuario
-      const { data: areasUsuario, error: errorAreas } =
-        await supabase
-          .from("Servidor_Area")
-          .select("IdAerea")
-          .eq("IdServidor", idUsuario);
-
-      if (errorAreas) throw errorAreas;
-
-      const misAreasIds = areasUsuario.map(a => a.IdAerea);
-
-      if (misAreasIds.length === 0) {
-        setServicios([]);
+      if (!areas || areas.length === 0) {
+        alert("Primero debes configurar tus áreas de servicio.");
+        navigate("/tus-areas"); // Ajusta a tu ruta de configuración
         return;
       }
 
-      // 3️⃣ Rango del mes actual
-      const inicioMes = new Date(
-        fechaSeleccionada.getFullYear(),
-        fechaSeleccionada.getMonth(),
-        1
-      );
+      // CARGAR SERVICIOS: Agrupar por fecha única
+      const hoy = new Date().toISOString().split("T")[0];
+      const { data: servData, error: errServ } = await supabase
+        .from("Servicio")
+        .select("Fecha")
+        .gte("Fecha", hoy)
+        .order("Fecha", { ascending: true });
 
-      const finMes = new Date(
-        fechaSeleccionada.getFullYear(),
-        fechaSeleccionada.getMonth() + 1,
-        0
-      );
+      if (errServ) throw errServ;
 
-      // 4️⃣ Servicios con áreas requeridas
-      const { data: serviciosData, error: errorServicios } =
-        await supabase
-          .from("Servicio")
-          .select(`
-            Id,
-            Fecha,
-            Tipo,
-            Jornada,
-            Estado,
-            ServicioArea (
-              IdArea
-            )
-          `)
-          .gte("Fecha", inicioMes.toISOString().split("T")[0])
-          .lte("Fecha", finMes.toISOString().split("T")[0]);
+      // Set de fechas únicas para evitar duplicados en la lista
+      const fechasUnicas = [...new Set(servData.map(s => s.Fecha))];
+      setDiasDisponibles(fechasUnicas);
 
-      if (errorServicios) throw errorServicios;
+      // CARGAR MIS REGISTROS: Ver en qué días ya estoy anotado
+      const { data: miDispo } = await supabase
+        .from("Disponbilidad")
+        .select("Fecha")
+        .eq("IdServidor", userId);
 
-      // 🔥 Filtrar servicios compatibles con MIS áreas
-      const serviciosCompatibles = serviciosData.filter(servicio =>
-        servicio.ServicioArea.some(sa =>
-          misAreasIds.includes(sa.IdArea)
-        )
-      );
+      setDisponibilidadesUser(miDispo.map(d => d.Fecha));
 
-      setServicios(serviciosCompatibles);
-
-    } catch (err) {
-      console.error("❌ Error cargando servicios:", err);
+    } catch (e) {
+      console.error("Error en inicialización:", e);
+    } finally {
+      setCarga(true);
     }
-    setcarga(true);
   };
 
-  // ─────────────────────────────
-  // VERIFICAR SI YA ESTÁ REGISTRADO
-  // ─────────────────────────────
-  const verificarDisponibilidad = async (fecha) => {
+  // 2. Lógica de Toggle (Anotarse / Quitarse)
+  const handleToggle = async (fecha) => {
     try {
       const { data: userData } = await supabase.auth.getUser();
-      if (!userData?.user) return;
+      const userId = userData.user.id;
+      const yaRegistrado = disponibilidadesUser.includes(fecha);
 
-      const fechaISO = fecha.toISOString().split("T")[0];
+      if (yaRegistrado) {
+        // ACCIÓN: Eliminar registro
+        const { error } = await supabase
+          .from("Disponbilidad")
+          .delete()
+          .eq("IdServidor", userId)
+          .eq("Fecha", fecha);
 
-      const { data } = await supabase
-        .from("Disponbilidad")
-        .select("id")
-        .eq("IdServidor", userData.user.id)
-        .eq("Fecha", fechaISO)
-        .maybeSingle();
+        if (error) throw error;
+        setDisponibilidadesUser(disponibilidadesUser.filter(f => f !== fecha));
+      } else {
+        // ACCIÓN: Insertar registro (Comodín)
+        const { error } = await supabase
+          .from("Disponbilidad")
+          .insert([{ IdServidor: userId, Fecha: fecha }]);
 
-      setYaRegistrado(!!data);
-
-    } catch (err) {
-      console.error("❌ Error verificando disponibilidad:", err);
-    }
-  };
-
-  // ─────────────────────────────
-  // REGISTRARSE EN EL DÍA
-  // ─────────────────────────────
-  const apuntarse = async () => {
-    if (yaRegistrado) return;
-
-    try {
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData?.user) return;
-
-      const fechaISO = fechaSeleccionada.toISOString().split("T")[0];
-
-      const { error } = await supabase
-        .from("Disponbilidad")
-        .insert([
-          {
-            IdServidor: userData.user.id,
-            Fecha: fechaISO,
-          },
-        ]);
-
-      if (error) throw error;
-
-      alert("✅ Te registraste correctamente");
-      setYaRegistrado(true);
-
-    } catch (err) {
-      console.error(err);
-      alert("❌ Error al registrarte");
-    }
-  };
-
-  // ─────────────────────────────
-  // EFECTOS
-  // ─────────────────────────────
-  useEffect(() => {
-    cargarServicios();
-  }, [fechaSeleccionada.getMonth()]);
-
-  useEffect(() => {
-    const fechaISO = fechaSeleccionada.toISOString().split("T")[0];
-    setServiciosDia(servicios.filter(s => s.Fecha === fechaISO));
-    verificarDisponibilidad(fechaSeleccionada);
-  }, [fechaSeleccionada, servicios]);
-
-  // ─────────────────────────────
-  // MARCAR DÍAS CON SERVICIOS
-  // ─────────────────────────────
-  const marcarDias = ({ date, view }) => {
-    if (view === "month") {
-      const fechaISO = date.toISOString().split("T")[0];
-      if (servicios.some(s => s.Fecha === fechaISO)) {
-        return "bg-success text-white rounded-circle";
+        if (error) throw error;
+        setDisponibilidadesUser([...disponibilidadesUser, fecha]);
       }
+    } catch (e) {
+      alert("Error al actualizar disponibilidad: " + e.message);
     }
   };
 
+  useEffect(() => {
+    inicializar();
+  }, []);
+
+  // 3. Interfaz de Carga (Spinner animado)
   if (!carga) {
     return (
-      <section className="text-center py-5">
-        <span className="spinner-border" />
-      </section>
+      <div className="d-flex flex-column align-items-center justify-content-center" style={{ minHeight: '70vh' }}>
+        <div className="spinner-border text-primary mb-3" role="status" style={{ width: '3rem', height: '3rem' }}>
+          <span className="visually-hidden">Cargando...</span>
+        </div>
+        <h6 className="fw-bold text-muted">Sincronizando servicios...</h6>
+      </div>
     );
   }
 
+  // 4. Interfaz Principal
   return (
-    <section className="container py-4">
+    <section className="container py-4" style={{ maxWidth: "480px" }}>
+      <header className="mb-4 text-center">
+        <h4 className="fw-bold">📅 Mi Disponibilidad</h4>
+        <p className="text-muted small">Selecciona los días que puedes apoyar en el servicio.</p>
+      </header>
 
-      <h4 className="fw-bold text-center mb-4">
-        📅 Disponibilidad según mis áreas
-      </h4>
-      <p className="text-muted text-center ">
-        Para descubrir los servicios disponibles, por favor elige un área         
-      </p>
+      {/* LISTA DE DÍAS ÚNICOS */}
+      <div className="list-group shadow-sm rounded-4 overflow-hidden border-0">
+        {diasDisponibles.length === 0 ? (
+          <div className="alert alert-light text-center border">No hay servicios programados próximamente.</div>
+        ) : (
+          diasDisponibles.map((fecha) => {
+            const yaRegistrado = disponibilidadesUser.includes(fecha);
+            const dateObj = new Date(fecha + "T00:00:00");
+            
+            // Formateo de fecha: "domingo 29"
+            const diaNombre = dateObj.toLocaleDateString("es-ES", { weekday: 'long' });
+            const diaNum = dateObj.getDate();
 
-      <div className="row g-4">
-
-        {/* ───── CALENDARIO ───── */}
-        <div className="col-md-6">
-          <div className="card shadow-sm rounded-4">
-            <div className="card-body d-flex justify-content-center">
-              <Calendar
-                locale="es-ES"
-                value={fechaSeleccionada}
-                onChange={setFechaSeleccionada}
-                tileClassName={marcarDias}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* ───── SERVICIOS DEL DÍA ───── */}
-        <div className="col-md-6">
-          <div className="card shadow-sm rounded-4 h-100">
-            <div className="card-body">
-
-              <h5 className="fw-bold mb-3">
-                Servicios del día
-              </h5>
-
-              {serviciosDia.length === 0 ? (
-                <section>
-                  <p className="text-muted">
-                    No hay servicios disponibles este día
-                  </p>
-                </section>
-              ) : (
-                <>
-                  <ul className="list-group list-group-flush">
-                    {serviciosDia.map(servicio => (
-                      <li key={servicio.Id} className="list-group-item">
-                        <div className="fw-semibold">
-                          {servicio.Tipo}
-                        </div>
-                        <small className="text-muted">
-                          Jornada: {servicio.Jornada}
-                        </small>
-                        <div>
-                          <span className="badge bg-primary mt-1">
-                            {servicio.Estado}
-                          </span>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-
-                  {/* BOTÓN INTELIGENTE */}
-                  <button
-                    className={`btn w-100 mt-3 ${
-                      yaRegistrado ? "btn-secondary" : "btn-success"
-                    }`}
-                    disabled={yaRegistrado}
-                    onClick={apuntarse}
+            return (
+              <button
+                key={fecha}
+                onClick={() => handleToggle(fecha)}
+                className={`list-group-item list-group-item-action d-flex align-items-center justify-content-between p-3 border-start-0 border-end-0 ${yaRegistrado ? 'bg-success-subtle' : ''}`}
+                style={{ transition: 'all 0.2s ease' }}
+              >
+                <div className="d-flex align-items-center gap-3">
+                  {/* Círculo indicador */}
+                  <div 
+                    className={`rounded-circle d-flex align-items-center justify-content-center fw-bold ${yaRegistrado ? 'bg-success text-white' : 'border border-primary text-primary'}`} 
+                    style={{ width: '45px', height: '45px', fontSize: '1.1rem' }}
                   >
-                    {yaRegistrado
-                      ? "✔ Ya estás registrado para este día"
-                      : "🙋 Me apunto a servir este día"}
-                  </button>
-                </>
-              )}
+                    {yaRegistrado ? "✓" : diaNum}
+                  </div>
 
-            </div>
-          </div>
-        </div>
+                  <div className="text-start">
+                    <div className="fw-bold text-capitalize" style={{ fontSize: '1.05rem' }}>
+                      {diaNombre} {diaNum}
+                    </div>
+                    <small className={yaRegistrado ? "text-success fw-bold" : "text-muted"}>
+                      {yaRegistrado ? "¡Estás anotado!" : "Toca para anotarte"}
+                    </small>
+                  </div>
+                </div>
 
+                {/* Switch visual */}
+                <div className="form-check form-switch">
+                  <input 
+                    className="form-check-input" 
+                    type="checkbox" 
+                    checked={yaRegistrado} 
+                    readOnly 
+                    style={{ cursor: 'pointer', width: '2.5em', height: '1.25em' }}
+                  />
+                </div>
+              </button>
+            );
+          })
+        )}
       </div>
+
+      <footer className="mt-4 text-center">
+        <div className="p-3 bg-light rounded-4">
+          <p className="small text-muted mb-0 italic">
+            <strong>Nota:</strong> Al marcar un día, el backend te asignará a los horarios disponibles según tu área configurada.
+          </p>
+        </div>
+      </footer>
     </section>
   );
 }
