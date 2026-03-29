@@ -23,7 +23,7 @@ export default function Disponibilidad() {
 
       if (!areas || areas.length === 0) {
         alert("Primero debes configurar tus áreas de servicio.");
-        navigate("/tus-areas"); // Ajusta a tu ruta de configuración
+        navigate("/Aereas"); // Ajusta a tu ruta de configuración
         return;
       }
 
