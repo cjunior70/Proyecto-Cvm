@@ -1,26 +1,44 @@
 import { supabase } from "../../../Supabase/cliente";
+import Swal from "sweetalert2";
 
 export const generarCronogramaAutomatico = async (servicios, alTerminar) => {
-
-  console.log("Este es el id de las  9 : " , servicios);
-
   if (!servicios || servicios.length === 0) return;
 
-  const confirmacion = window.confirm("¿Deseas asignar servidores automáticamente a estos servicios?");
-  if (!confirmacion) return;
+  try {
+    // Recorremos los servicios para ejecutar las funciones en la base de datos
+    for (const servicio of servicios) {
+      
+      // 1. Ejecutar Fijos
+      await supabase.rpc("asignar_servidores_fijos", { 
+        p_fecha: servicio.Fecha 
+      });
 
-  for (const servicio of servicios) {
-    const { data, error } = await supabase.rpc('generar_match_automatico', {
-      p_servicio_id: servicio.Id
+      // 2. Ejecutar Disponibles (Llenar huecos)
+      await supabase.rpc("asignar_comodines_disponibles", { 
+        p_fecha: servicio.Fecha 
+      });
+    }
+
+    // Mensaje de éxito minimalista
+    Swal.fire({
+      title: "¡Cronograma Listo!",
+      text: "Se han completado las asignaciones para los próximos servicios.",
+      icon: "success",
+      confirmButtonColor: "#0d6efd",
+      timer: 2500,
+      showConfirmButton: false // Se cierra solo para mayor fluidez
     });
 
-    if (error) {
-      console.error(`Error en servicio ${servicio.Tipo}:`, error.message);
-    } else {
-      console.log(`Resultado para ${servicio.Tipo}:`, data);
-    }
-  }
+    // Refrescar la vista
+    if (alTerminar) alTerminar();
 
-  alert("Proceso de cronograma terminado.");
-  alTerminar(); // Para que el componente recargue los datos
+  } catch (error) {
+    console.error("Error en la generación:", error);
+    Swal.fire({
+      title: "Nota",
+      text: "Hubo un inconveniente al procesar algunos turnos.",
+      icon: "error",
+      confirmButtonColor: "#dc3545"
+    });
+  }
 };

@@ -1,97 +1,87 @@
 import { useEffect, useState } from "react";
-import { NavLink, Outlet } from "react-router-dom";
+import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { supabase } from "../../../Supabase/cliente";
 
 export default function Layout() {
   const [rol, setRol] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const obtenerRol = async () => {
-      const { data: authData } = await supabase.auth.getUser();
-      if (!authData?.user) return;
-      
-      const { data, error } = await supabase
-        .from("Servidores") 
-        .select("Rol")
-        .eq("Id", authData.user.id)
-        .single();
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (!user) {
+          navigate("/login"); // Redirigir si no hay sesión
+          return;
+        }
 
-      if (!error && data) {
-        setRol(data.Rol);
+        const { data, error } = await supabase
+          .from("Servidores")
+          .select("Rol")
+          .eq("Id", user.id)
+          .single();
+
+        if (!error && data) {
+          setRol(data.Rol);
+        }
+      } catch (err) {
+        console.error("Error obteniendo rol:", err);
+      } finally {
+        setLoading(false);
       }
     };
+
     obtenerRol();
-  }, []);
+  }, [navigate]);
+
+  // Mientras carga el rol, podemos mostrar un spinner o nada para evitar saltos visuales
+  if (loading) return null; 
 
   return (
-    // min-vh-100 asegura que ocupe toda la pantalla
-    <section className="d-flex flex-column min-vh-100">
-
-      {/* CONTENIDO: Agregamos pb-5 para que el menú no tape el final del contenido */}
-      <section className="flex-grow-1 p-3 mb-5 pb-4">
+    <section className="d-flex flex-column min-vh-100 bg-light">
+      {/* Contenido principal */}
+      <section className="flex-grow-1 p-2 pb-5 mb-5">
         <Outlet />
       </section>
 
-      {/* BARRA INFERIOR: Usamos fixed-bottom para que no se mueva */}
-      <nav className="fixed-bottom border-top w-100 bg-white shadow-sm">
-        <section className="d-flex justify-content-around text-center py-2">
-
+      {/* Barra de Navegación Fija */}
+      <nav className="fixed-bottom border-top w-100 bg-white shadow-lg" style={{ zIndex: 2000 }}>
+        <section className="d-flex justify-content-around text-center py-2 px-1">
           {rol === "Admin" ? (
             <>
-              <NavLink to="/Homeadmin" className={({ isActive }) =>
-                `nav-link d-flex flex-column align-items-center ${isActive ? "text-primary fw-semibold" : "text-secondary"}`
-              }>
-                🏠 <section style={{ fontSize: '12px' }}>Inicio</section>
-              </NavLink>
-
-              <NavLink to="/Servidores" className={({ isActive }) =>
-                `nav-link d-flex flex-column align-items-center ${isActive ? "text-primary fw-semibold" : "text-secondary"}`
-              }>
-                👥 <section style={{ fontSize: '12px' }}>Servidores</section>
-              </NavLink>
-
-              <NavLink to="/Servicios" className={({ isActive }) =>
-                `nav-link d-flex flex-column align-items-center ${isActive ? "text-primary fw-semibold" : "text-secondary"}`
-              }>
-                🕛 <section style={{ fontSize: '12px' }}>Servicios</section>
-              </NavLink>
-
-              <NavLink to="/AereasAdmins" className={({ isActive }) =>
-                `nav-link d-flex flex-column align-items-center ${isActive ? "text-primary fw-semibold" : "text-secondary"}`
-              }>
-                📂 <section style={{ fontSize: '12px' }}>Áreas</section>
-              </NavLink>
+              <MenuLink to="/Homeadmin" icon="🏠" label="Inicio" />
+              <MenuLink to="/Servidores" icon="👥" label="Servidores" />
+              <MenuLink to="/Servicios" icon="🕛" label="Servicios" />
+              <MenuLink to="/AereasAdmins" icon="📂" label="Áreas" />
             </>
           ) : (
             <>
-              <NavLink to="/Home" className={({ isActive }) =>
-                `nav-link d-flex flex-column align-items-center ${isActive ? "text-primary fw-semibold" : "text-secondary"}`
-              }>
-                🏠 <section style={{ fontSize: '12px' }}>Inicio</section>
-              </NavLink>
-
-              <NavLink to="/Disponibilidad" className={({ isActive }) =>
-                `nav-link d-flex flex-column align-items-center ${isActive ? "text-primary fw-semibold" : "text-secondary"}`
-              }>
-                📅 <section style={{ fontSize: '12px' }}>Disponibilidad</section>
-              </NavLink>
-
-              <NavLink to="/Aereas" className={({ isActive }) =>
-                `nav-link d-flex flex-column align-items-center ${isActive ? "text-primary fw-semibold" : "text-secondary"}`
-              }>
-                📂 <section style={{ fontSize: '12px' }}>Áreas</section>
-              </NavLink>
+              <MenuLink to="/Home" icon="🏠" label="Inicio" />
+              <MenuLink to="/Disponibilidad" icon="📅" label="Disponibilidad" />
+              <MenuLink to="/Aereas" icon="📂" label="Áreas" />
             </>
           )}
-
-          <NavLink to="/DatosPersonales" className={({ isActive }) =>
-            `nav-link d-flex flex-column align-items-center ${isActive ? "text-primary fw-semibold" : "text-secondary"}`
-          }>
-            👤 <section style={{ fontSize: '12px' }}>Perfil</section>
-          </NavLink>
-
+          <MenuLink to="/DatosPersonales" icon="👤" label="Perfil" />
         </section>
       </nav>
     </section>
+  );
+}
+
+function MenuLink({ to, icon, label }) {
+  return (
+    <NavLink 
+      to={to} 
+      className={({ isActive }) =>
+        `nav-link d-flex flex-column align-items-center flex-fill transition-all ${
+          isActive ? "text-primary fw-bold scale-110" : "text-secondary opacity-75"
+        }`
+      }
+    >
+      <span style={{ fontSize: '22px' }}>{icon}</span>
+      <span style={{ fontSize: '10px', marginTop: '1px', textTransform: 'uppercase' }}>{label}</span>
+    </NavLink>
   );
 }

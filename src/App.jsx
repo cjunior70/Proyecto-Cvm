@@ -12,6 +12,7 @@ import Servicios from './Interfazes/Servicios/Servicios'
 import Servidores from './Interfazes/Servidores/Servidores'
 import AreasAdmin from './Interfazes/Aereas/AreasAdmin'
 import Homeadmin from './Interfazes/Home/Homeadmin'
+import VistaDetalleCronograma from './Interfazes/Home/VistaDetalle'
 
 function App() {
 
@@ -32,6 +33,7 @@ function App() {
               <Route path='/DatosPersonales' element={<DatosPersonales/>}/>
               <Route path='/Disponibilidad' element={<Disponibilidad/>}/>
               <Route path='/Home' element={<Home/>}/>
+              <Route path='/VistaDetalleCronograma' element={<VistaDetalleCronograma/>}/>
               <Route path='/Homeadmin' element={<Homeadmin/>}/>
               <Route path='/Servicios' element={<Servicios/>}/>
               <Route path='/Servidores' element={<Servidores/>}/>
