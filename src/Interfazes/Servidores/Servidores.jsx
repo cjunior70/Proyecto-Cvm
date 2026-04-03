@@ -13,8 +13,14 @@ export default function Servidores() {
   const [areaId, setAreaId] = useState("");
   const [cargando, setCargando] = useState(false);
 
+  // 1. Cargar servidores al inicio
   useEffect(() => {
     cargarServidores();
+    
+    // Limpieza de URL por si queda basura de tokens/errores
+    if (window.location.hash.includes("access_token") || window.location.hash.includes("error")) {
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
   }, []);
 
   const cargarServidores = async () => {
@@ -25,10 +31,7 @@ export default function Servidores() {
   const cargarAreasPermitidas = async (idServidor) => {
     const { data, error } = await supabase
       .from("Servidor_Area")
-      .select(`
-        IdAerea,
-        Aerea ( Id, Nombre )
-      `)
+      .select(`IdAerea, Aerea ( Id, Nombre )`)
       .eq("IdServidor", idServidor);
     
     if (error) return console.error(error);
@@ -38,8 +41,9 @@ export default function Servidores() {
   const cargarAsignacionesHorarios = async (idServidor) => {
     const { data } = await supabase
       .from("Disponbilidad")
-      .select(`id, Dia, Hora, Aerea ( Id, Nombre )`)
-      .eq("IdServidor", idServidor);
+      .select(`id, Dia, Hora, Fecha, Aerea ( Id, Nombre )`)
+      .eq("IdServidor", idServidor)
+      .order("Fecha", { ascending: true }); // <--- Ordena por la fecha real del calendario
     setAsignaciones(data || []);
   };
 
@@ -73,17 +77,28 @@ export default function Servidores() {
       await cargarAsignacionesHorarios(servidorSeleccionado.Id);
       await cargarServidores();
       setDia(""); setHora(""); setAreaId("");
+    } else {
+      alert("Error al asignar: " + error.message);
     }
     setCargando(false);
   };
 
   const eliminarAsignacion = async (idReg) => {
-    if (!window.confirm("¿Eliminar este horario fijo?")) return;
+    if (!window.confirm("¿Eliminar este registro específico del mes?")) return;
     setCargando(true);
+    
     const { error } = await supabase.from("Disponbilidad").delete().eq("id", idReg);
+    
     if (!error) {
+      // Recargar la lista del modal
       await cargarAsignacionesHorarios(servidorSeleccionado.Id);
-      const { data } = await supabase.from("Disponbilidad").select("id").eq("IdServidor", servidorSeleccionado.Id);
+      
+      // Verificar si ya no quedan registros para volver a "Libre"
+      const { data } = await supabase
+        .from("Disponbilidad")
+        .select("id")
+        .eq("IdServidor", servidorSeleccionado.Id);
+      
       if (!data || data.length === 0) {
         await supabase.from("Servidores").update({ Estado: "Libre" }).eq("Id", servidorSeleccionado.Id);
         await cargarServidores();
@@ -92,7 +107,6 @@ export default function Servidores() {
     setCargando(false);
   };
 
-  // 🔥 ACTUALIZACIÓN CLAVE: Agregamos la jornada fusionada
   const horasOpciones = dia === "Domingo" 
     ? ["7:00 AM", "9:00 AM y 11:00 AM", "6:00 PM"] 
     : dia === "Miércoles" ? ["7:00 PM"] : [];
@@ -129,7 +143,6 @@ export default function Servidores() {
         </div>
       ))}
 
-      {/* MODAL (BOOTSTRAP) */}
       {mostrarModal && (
         <div className="modal fade show d-block" style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}>
           <div className="modal-dialog modal-dialog-centered mx-3">
@@ -146,28 +159,31 @@ export default function Servidores() {
                 </div>
 
                 <label className="small fw-bold text-uppercase text-secondary mb-2 d-block" style={{ fontSize: "11px", letterSpacing: '1px' }}>
-                   <i className="bi bi-clock-history me-1"></i> Horarios Fijos Actuales
+                   <i className="bi bi-calendar-check me-1"></i> Lista de Asignaciones (Mensual)
                 </label>
                 
-                {asignaciones.length > 0 ? (
-                  asignaciones.map((a) => (
-                    <div key={a.id} className="d-flex justify-content-between align-items-center p-3 mb-2 rounded-4 bg-white border shadow-sm">
-                      <div>
-                        <span className="fw-bold d-block text-dark" style={{ fontSize: "0.85rem" }}>{a.Dia} • {a.Hora}</span>
-                        <span className="badge bg-primary-subtle text-primary" style={{ fontSize: "10px" }}>{a.Aerea?.Nombre}</span>
+                {/* CONTENEDOR CON SCROLL PARA EVITAR DUPLICADOS VISUALMENTE MOLESTOS */}
+                <div style={{ maxHeight: '250px', overflowY: 'auto', paddingRight: '5px' }} className="mb-3">
+                  {asignaciones.map((a) => (
+                    <div key={a.id} className="d-flex justify-content-between align-items-center p-2 mb-2 rounded-4 bg-white border shadow-sm border-start border-primary border-4">
+                      <div className="ms-2">
+                        <span className="fw-bold d-block text-dark" style={{ fontSize: "0.85rem" }}>
+                          {/* Mostramos la fecha formateada: ej. "Dom, 5 abr" */}
+                          {a.Dia} {a.Fecha ? new Date(a.Fecha + 'T00:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }) : ''}
+                        </span>
+                        <div className="d-flex align-items-center gap-2">
+                          <span className="badge bg-primary-subtle text-primary" style={{ fontSize: "9px" }}>{a.Hora}</span>
+                          <span className="text-muted" style={{ fontSize: "10px" }}>{a.Aerea?.Nombre}</span>
+                        </div>
                       </div>
-                      <button className="btn btn-sm btn-outline-danger border-0 rounded-circle" onClick={() => eliminarAsignacion(a.id)}>
-                         <i className="bi bi-trash3-fill"></i>
+                      <button className="btn btn-sm text-danger border-0" onClick={() => eliminarAsignacion(a.id)}>
+                        <i className="bi bi-x-circle-fill fs-6"></i>
                       </button>
                     </div>
-                  ))
-                ) : (
-                  <div className="text-center py-3 border rounded-4 border-dashed mb-3">
-                    <p className="text-muted small mb-0">No tiene asignaciones fijas.</p>
-                  </div>
-                )}
+                  ))}
+                </div>
 
-                <div className="p-3 bg-light rounded-4 mt-4">
+                <div className="p-3 bg-light rounded-4">
                   <label className="small fw-bold text-uppercase text-secondary mb-2 d-block" style={{ fontSize: "11px" }}>+ Nuevo Horario Fijo</label>
                   
                   <select className="form-select mb-2 rounded-3 shadow-sm border-0" value={areaId} onChange={(e) => setAreaId(e.target.value)}>
@@ -203,7 +219,7 @@ export default function Servidores() {
               </div>
 
               <div className="p-3 bg-white text-center border-0 pb-4">
-                <button className="btn btn-link btn-sm text-decoration-none text-muted fw-bold" onClick={cerrarModal}>Cancelar</button>
+                <button className="btn btn-link btn-sm text-decoration-none text-muted fw-bold" onClick={cerrarModal}>Cerrar</button>
               </div>
             </div>
           </div>
