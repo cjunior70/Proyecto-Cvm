@@ -6,14 +6,18 @@ const VistaDetalleCronograma = () => {
   const location = useLocation();
   const navigate = useNavigate();
   
-  // Obtenemos el servicio pasado por el state de navegación
   const { servicio } = location.state || {};
   
   const [equipo, setEquipo] = useState([]);
+  const [candidatos, setCandidatos] = useState([]);
   const [cargando, setCargando] = useState(true);
+  const [buscandoCandidatos, setBuscandoCandidatos] = useState(false);
+  
+  // Estados para el Modal
+  const [mostrarModalAsignar, setMostrarModalAsignar] = useState(false);
+  const [puestoSeleccionado, setPuestoSeleccionado] = useState(null);
 
   useEffect(() => {
-    // Si entran directo a la URL sin pasar por la lista, los devolvemos
     if (!servicio) {
       navigate("/Homeadmin");
     } else {
@@ -24,11 +28,9 @@ const VistaDetalleCronograma = () => {
   const cargarEquipo = async () => {
     setCargando(true);
     try {
-      // Llamada a la función RPC que acabamos de actualizar en Postgres
       const { data, error } = await supabase.rpc("obtener_equipo_servicio", {
         p_servicio_id: servicio.Id,
       });
-
       if (error) throw error;
       setEquipo(data || []);
     } catch (error) {
@@ -38,113 +40,108 @@ const VistaDetalleCronograma = () => {
     }
   };
 
+  // 1. BUSCAR PERSONAS DISPONIBLES (EL MATCH)
+  const abrirSeleccionCandidatos = async (puesto) => {
+    setPuestoSeleccionado(puesto);
+    setBuscandoCandidatos(true);
+    setMostrarModalAsignar(true);
+    
+    try {
+      // Llamamos al RPC que creamos anteriormente
+      const { data, error } = await supabase.rpc("obtener_candidatos_disponibles", {
+        p_dia: servicio.Dia,
+        p_hora: servicio.Jornada,
+        p_area_id: puesto.area_id
+      });
+
+      if (error) throw error;
+      setCandidatos(data || []);
+    } catch (error) {
+      console.error("Error al buscar candidatos:", error.message);
+    } finally {
+      setBuscandoCandidatos(false);
+    }
+  };
+
+  // 2. GUARDAR LA ASIGNACIÓN EN LA BASE DE DATOS
+  const ejecutarAsignacion = async (servidorId) => {
+    try {
+      setCargando(true);
+      
+      // Upsert: Si ya existe el registro en Cronograma lo actualiza, si no lo crea
+      const { error } = await supabase
+        .from("Cronograma")
+        .upsert({
+          IdServicio: servicio.Id,
+          IdArea: puestoSeleccionado.area_id,
+          IdServidor: servidorId
+        }, { onConflict: 'IdServicio, IdArea' }); // Evita duplicados en la misma área/servicio
+
+      if (error) throw error;
+
+      setMostrarModalAsignar(false);
+      await cargarEquipo(); // Recargamos la vista para ver los cambios
+    } catch (error) {
+      alert("Error al asignar: " + error.message);
+    } finally {
+      setCargando(false);
+    }
+  };
+
   return (
     <div className="min-vh-100 bg-light pb-5">
       {/* --- HEADER --- */}
       <div className="sticky-top bg-white border-bottom p-3 d-flex align-items-center shadow-sm">
-        <button 
-          className="btn btn-light rounded-circle me-3 border-0" 
-          onClick={() => navigate(-1)}
-        >
+        <button className="btn btn-light rounded-circle me-3 border-0" onClick={() => navigate(-1)}>
           <i className="bi bi-arrow-left"></i>
         </button>
         <div>
-          <h6 className="fw-bold mb-0 text-uppercase">
-            {servicio?.Tipo || "Detalle del Servicio"}
-          </h6>
-          <small className="text-muted">
-            {servicio?.Fecha} • {servicio?.Jornada}
-          </small>
+          <h6 className="fw-bold mb-0 text-uppercase">{servicio?.Tipo || "Detalle"}</h6>
+          <small className="text-muted">{servicio?.Fecha} • {servicio?.Jornada}</small>
         </div>
       </div>
 
       <div className="container py-4">
         <div className="d-flex justify-content-between align-items-center mb-4">
-          <h5 className="fw-bold mb-0 text-dark">Personal Requerido</h5>
-          <span className="badge bg-dark rounded-pill px-3">
-            {equipo.length} Áreas
-          </span>
+          <h5 className="fw-bold mb-0">Personal Requerido</h5>
+          <span className="badge bg-dark rounded-pill px-3">{equipo.length} Puestos</span>
         </div>
 
-        {cargando ? (
+        {cargando && !mostrarModalAsignar ? (
           <div className="text-center py-5">
             <div className="spinner-border text-primary" role="status"></div>
-            <p className="mt-2 text-muted small">Sincronizando equipo...</p>
           </div>
         ) : (
           <div className="row g-3">
             {equipo.map((puesto) => {
               const asignado = puesto.esta_asignado;
-
               return (
-                <div key={puesto.cronograma_id || puesto.servicio_area_id} className="col-12">
-                  <div 
-                    className={`card border-0 rounded-4 shadow-sm transition-all ${
-                      asignado ? "bg-white" : "border-start border-warning border-5 bg-white"
-                    }`}
-                  >
+                <div key={puesto.servicio_area_id} className="col-12">
+                  <div className={`card border-0 rounded-4 shadow-sm ${asignado ? "bg-white" : "border-start border-warning border-5 bg-white"}`}>
                     <div className="card-body d-flex align-items-center p-3">
-                      
-                      {/* --- SECCIÓN FOTO / ICONO --- */}
-                      <div className="me-3 position-relative">
-                        {asignado && puesto.servidor_foto ? (
-                          <img 
-                            src={puesto.servidor_foto} 
-                            className="rounded-circle shadow-sm border" 
-                            width="55" 
-                            height="55" 
-                            style={{ objectFit: "cover" }} 
-                            onError={(e) => { 
-                               e.target.src = `https://ui-avatars.com/api/?name=${puesto.servidor_nombre || puesto.area_nombre}&background=0D6EFD&color=fff`; 
-                            }}
-                            alt="Avatar"
-                          />
+                      <div className="me-3">
+                        {asignado ? (
+                          <img src={puesto.servidor_foto} className="rounded-circle border" width="55" height="55" style={{ objectFit: "cover" }} />
                         ) : (
-                          <div 
-                            className={`rounded-circle d-flex align-items-center justify-content-center shadow-sm ${
-                              asignado ? "bg-primary text-white" : "bg-warning-subtle text-warning"
-                            }`} 
-                            style={{ width: "55px", height: "55px" }}
-                          >
-                            <i className={`bi ${asignado ? "bi-person-fill" : "bi-geo-alt-fill"} fs-4`}></i>
+                          <div className="rounded-circle bg-warning-subtle text-warning d-flex align-items-center justify-content-center" style={{ width: "55px", height: "55px" }}>
+                            <i className="bi bi-person-plus-fill fs-4"></i>
                           </div>
                         )}
-                        {/* Indicador de estado */}
-                        <span className={`position-absolute bottom-0 end-0 p-1 border border-light rounded-circle ${asignado ? 'bg-success' : 'bg-warning'}`}></span>
                       </div>
 
-                      {/* --- INFO DEL PUESTO --- */}
                       <div className="flex-grow-1 overflow-hidden">
-                        <div className="text-muted fw-bold mb-1" style={{ fontSize: "11px", textTransform: "uppercase", letterSpacing: "1px" }}>
-                          {puesto.area_nombre}
-                        </div>
-                        
+                        <div className="text-muted fw-bold mb-1" style={{ fontSize: "10px", textTransform: "uppercase" }}>{puesto.area_nombre}</div>
                         <h6 className={`fw-bold mb-0 text-truncate ${asignado ? "text-dark" : "text-muted italic"}`}>
-                          {asignado ? puesto.servidor_nombre : "Puesto Disponible"}
+                          {asignado ? puesto.servidor_nombre : "Sin asignar"}
                         </h6>
-                        
-                        {!asignado && (
-                          <span className="text-warning small" style={{fontSize: '11px'}}>
-                            <i className="bi bi-info-circle me-1"></i>Requiere atención
-                          </span>
-                        )}
                       </div>
 
-                      {/* --- ACCIONES --- */}
-                      <div className="ms-2">
-                        <button 
-                          className={`btn btn-sm rounded-pill px-4 fw-bold shadow-sm ${
-                            asignado ? "btn-light border text-secondary" : "btn-primary"
-                          }`}
-                          onClick={() => {
-                            // Aquí iría la lógica para abrir el modal de selección
-                            console.log("Gestionar puesto:", puesto.servicio_area_id);
-                          }}
-                        >
-                          {asignado ? "Cambiar" : "Asignar"}
-                        </button>
-                      </div>
-
+                      <button 
+                        className={`btn btn-sm rounded-pill px-4 fw-bold ${asignado ? "btn-light border" : "btn-primary"}`}
+                        onClick={() => abrirSeleccionCandidatos(puesto)}
+                      >
+                        {asignado ? "Cambiar" : "Asignar"}
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -152,18 +149,58 @@ const VistaDetalleCronograma = () => {
             })}
           </div>
         )}
-
-        {/* --- EMPTY STATE --- */}
-        {!cargando && equipo.length === 0 && (
-          <div className="text-center py-5">
-            <i className="bi bi-clipboard-x text-muted" style={{fontSize: '3rem'}}></i>
-            <h6 className="text-muted mt-3">No hay áreas configuradas para este servicio.</h6>
-            <button className="btn btn-outline-primary btn-sm mt-2 rounded-pill">
-              Configurar Áreas
-            </button>
-          </div>
-        )}
       </div>
+
+      {/* --- MODAL DE SELECCIÓN DE CANDIDATOS --- */}
+      {mostrarModalAsignar && (
+        <div className="modal fade show d-block" style={{ background: "rgba(0,0,0,0.8)", backdropFilter: "blur(6px)" }}>
+          <div className="modal-dialog modal-dialog-centered mx-3">
+            <div className="modal-content rounded-5 border-0 shadow-lg overflow-hidden">
+              <div className="modal-header border-0 p-4 pb-2">
+                <h6 className="fw-bold mb-0">Seleccionar Personal</h6>
+                <button className="btn-close" onClick={() => setMostrarModalAsignar(false)}></button>
+              </div>
+              
+              <div className="modal-body p-4 pt-0">
+                <p className="text-muted small mb-4">Disponibles para <b>{puestoSeleccionado?.area_nombre}</b></p>
+                
+                {buscandoCandidatos ? (
+                  <div className="text-center py-4"><div className="spinner-border spinner-border-sm text-primary"></div></div>
+                ) : (
+                  <div className="list-group list-group-flush" style={{maxHeight: '350px', overflowY: 'auto'}}>
+                    {candidatos.length > 0 ? (
+                      candidatos.map(c => (
+                        <button 
+                          key={c.servidor_id}
+                          className="list-group-item list-group-item-action d-flex align-items-center border-0 py-3 rounded-4 mb-2 bg-light"
+                          onClick={() => ejecutarAsignacion(c.servidor_id)}
+                        >
+                          <img src={c.foto || `https://ui-avatars.com/api/?name=${c.nombre}`} className="rounded-circle me-3 shadow-sm" width="45" height="45" style={{objectFit: 'cover'}} />
+                          <div className="flex-grow-1 text-start">
+                            <h6 className="mb-0 fw-bold" style={{fontSize: '0.9rem'}}>{c.nombre}</h6>
+                            <span className="text-success small" style={{fontSize: '11px'}}>
+                              <i className="bi bi-check-circle-fill me-1"></i>Confirmado
+                            </span>
+                          </div>
+                          <i className="bi bi-plus-circle-fill text-primary fs-5"></i>
+                        </button>
+                      ))
+                    ) : (
+                      <div className="text-center py-5">
+                        <i className="bi bi-person-x fs-1 text-muted"></i>
+                        <p className="text-muted mt-2 small">Nadie disponible para este horario.</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+              <div className="p-3 text-center border-top">
+                <button className="btn btn-link btn-sm text-decoration-none text-muted fw-bold" onClick={() => setMostrarModalAsignar(false)}>Cerrar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

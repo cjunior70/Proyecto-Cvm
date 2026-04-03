@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../../../Supabase/cliente";
 
 export default function Layout() {
   const [rol, setRol] = useState(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const location = useLocation(); // Para saber dónde está el usuario parado
 
   useEffect(() => {
     const obtenerRol = async () => {
@@ -13,7 +14,7 @@ export default function Layout() {
         const { data: { user } } = await supabase.auth.getUser();
         
         if (!user) {
-          navigate("/login"); // Redirigir si no hay sesión
+          navigate("/login");
           return;
         }
 
@@ -25,6 +26,16 @@ export default function Layout() {
 
         if (!error && data) {
           setRol(data.Rol);
+
+          // ✨ REDIRECCIÓN AUTOMÁTICA AL INICIO SEGÚN ROL
+          // Si el usuario está en la raíz "/" o "/login", mándalo a su Home correspondiente
+          if (location.pathname === "/" || location.pathname === "/login") {
+            if (data.Rol === "Admin") {
+              navigate("/Homeadmin");
+            } else {
+              navigate("/Home");
+            }
+          }
         }
       } catch (err) {
         console.error("Error obteniendo rol:", err);
@@ -34,10 +45,15 @@ export default function Layout() {
     };
 
     obtenerRol();
-  }, [navigate]);
+  }, [navigate, location.pathname]);
 
-  // Mientras carga el rol, podemos mostrar un spinner o nada para evitar saltos visuales
-  if (loading) return null; 
+  if (loading) {
+    return (
+      <div className="d-flex justify-content-center align-items-center vh-100">
+        <div className="spinner-border text-primary" />
+      </div>
+    );
+  }
 
   return (
     <section className="d-flex flex-column min-vh-100 bg-light">
@@ -52,14 +68,14 @@ export default function Layout() {
           {rol === "Admin" ? (
             <>
               <MenuLink to="/Homeadmin" icon="🏠" label="Inicio" />
-              <MenuLink to="/Servidores" icon="👥" label="Servidores" />
-              <MenuLink to="/Servicios" icon="🕛" label="Servicios" />
+              <MenuLink to="/Servidores" icon="👥" label="Staff" />
+              <MenuLink to="/Servicios" icon="🕛" label="Turnos" />
               <MenuLink to="/AereasAdmins" icon="📂" label="Áreas" />
             </>
           ) : (
             <>
               <MenuLink to="/Home" icon="🏠" label="Inicio" />
-              <MenuLink to="/Disponibilidad" icon="📅" label="Disponibilidad" />
+              <MenuLink to="/Disponibilidad" icon="📅" label="Dispo" />
               <MenuLink to="/Aereas" icon="📂" label="Áreas" />
             </>
           )}
@@ -81,7 +97,7 @@ function MenuLink({ to, icon, label }) {
       }
     >
       <span style={{ fontSize: '22px' }}>{icon}</span>
-      <span style={{ fontSize: '10px', marginTop: '1px', textTransform: 'uppercase' }}>{label}</span>
+      <span style={{ fontSize: '9px', marginTop: '1px', textTransform: 'uppercase' }}>{label}</span>
     </NavLink>
   );
 }
