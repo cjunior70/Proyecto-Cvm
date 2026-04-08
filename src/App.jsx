@@ -1,5 +1,6 @@
-
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import { useEffect } from 'react' // Importamos useEffect
+import { supabase } from '../Supabase/cliente'
 import './App.css'
 import Login from './Interfazes/Login/Login'
 import Aereas from './Interfazes/Aereas/Aereas'
@@ -16,16 +17,34 @@ import VistaDetalleCronograma from './Interfazes/Home/VistaDetalle'
 
 function App() {
 
+  useEffect(() => {
+    // 1. Escuchar cambios en la autenticación
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      
+      // Si el evento es un inicio de sesión exitoso
+      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+        
+        // Si hay un hash en la URL (#access_token...), lo limpiamos
+        if (window.location.hash) {
+          // Esto elimina el token de la barra de direcciones sin recargar la página
+          window.history.replaceState({}, document.title, window.location.pathname);
+          console.log("Token procesado y URL limpiada con éxito.");
+        }
+      }
+    });
+
+    // Limpiar el listener al desmontar el componente
+    return () => subscription.unsubscribe();
+  }, []);
+
   return (
     <>
       <BrowserRouter>
-        {/* Contenedor de las rutas */}
-
         <Routes>
             {/* Login */}
             <Route path='/' element={<Login/>}/>
 
-            {/* Rutas */}
+            {/* Rutas con Barra Lateral/Superior */}
             <Route element={<Barra/>}>
               <Route path='/Aereas' element={<Aereas/>}/>
               <Route path='/AereasAdmins' element={<AreasAdmin/>}/>
@@ -38,10 +57,8 @@ function App() {
               <Route path='/Servicios' element={<Servicios/>}/>
               <Route path='/Servidores' element={<Servidores/>}/>
             </Route>
-
         </Routes>
       </BrowserRouter>
-
     </>
   )
 }

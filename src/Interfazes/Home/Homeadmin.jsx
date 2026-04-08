@@ -120,7 +120,7 @@ export default function Homeadmin() {
       </div>
 
       {/* --- BOTÓN FLOTANTE (Bootstrap FAB) --- */}
-      <div className="fixed-bottom d-flex justify-content-center mb-4 pb-4" style={{ pointerEvents: 'none' }}>
+      <div className="fixed-bottom d-flex justify-content-center mb-5 pb-5" style={{ pointerEvents: 'none' }}>
         <button 
           className={`btn btn-primary shadow-lg rounded-pill px-4 py-3 fw-bold border-0 d-flex align-items-center gap-2 ${generando ? 'disabled' : ''}`}
           style={{ 
