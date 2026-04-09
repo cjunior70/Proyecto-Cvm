@@ -107,9 +107,12 @@ export default function Servidores() {
     setCargando(false);
   };
 
+  // Cambiamos esta constante para que incluya los nuevos horarios del miércoles
   const horasOpciones = dia === "Domingo" 
     ? ["7:00 AM", "9:00 AM y 11:00 AM", "6:00 PM"] 
-    : dia === "Miércoles" ? ["7:00 PM"] : [];
+    : dia === "Miércoles" 
+      ? ["6:00 PM", "7:30 PM"]  // <--- Actualizado aquí
+      : [];
 
   return (
     <div className="container py-4 bg-light min-vh-100" style={{ maxWidth: "500px" }}>
@@ -117,7 +120,10 @@ export default function Servidores() {
         <div className="bg-dark text-white p-2 rounded-3 me-3">
           <i className="bi bi-people-fill fs-4"></i>
         </div>
-        <h5 className="fw-bold mb-0">Gestión de Servidores</h5>
+        <div>
+          <h5 className="fw-bold mb-0">Gestión de Servidores</h5>
+          <small className="text-muted">Asigna y fija el estado de los servidores activos aquí.</small>
+        </div>
       </div>
 
       {servidores.map((s) => (
