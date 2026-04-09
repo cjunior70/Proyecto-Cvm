@@ -69,13 +69,13 @@ export default function Layout() {
             <>
               <MenuLink to="/Homeadmin" icon="🏠" label="Inicio" />
               <MenuLink to="/Servidores" icon="👥" label="Staff" />
-              <MenuLink to="/Servicios" icon="🕛" label="Turnos" />
+              <MenuLink to="/Servicios" icon="🕛" label="Servicios" />
               <MenuLink to="/AereasAdmins" icon="📂" label="Áreas" />
             </>
           ) : (
             <>
               <MenuLink to="/Home" icon="🏠" label="Inicio" />
-              <MenuLink to="/Disponibilidad" icon="📅" label="Dispo" />
+              <MenuLink to="/Disponibilidad" icon="📅" label="Calendario" />
               <MenuLink to="/Aereas" icon="📂" label="Áreas" />
             </>
           )}
