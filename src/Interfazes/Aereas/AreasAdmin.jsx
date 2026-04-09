@@ -119,7 +119,7 @@ export default function AreasAdmin() {
       <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-5 bg-white p-4 rounded-4 shadow-sm border">
         <div>
           <h2 className="fw-bold m-0 text-dark">Gestión de Áreas</h2>
-          <p className="text-muted m-0">Administra los espacios y categorías del sistema</p>
+          <p className="text-muted m-0">Administra los aereas de nuestro servicios</p>
         </div>
         <div className="mt-3 mt-md-0 d-flex align-items-center gap-3">
           <span className="badge bg-light text-dark border px-3 py-2 rounded-pill">

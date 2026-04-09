@@ -57,6 +57,7 @@ export default function Homeadmin() {
         {/* --- TÍTULO DE SECCIÓN --- */}
         <div className="px-2 mb-3">
           <h5 className="fw-bold text-dark mb-1">Próxima Agenda</h5>
+          <p className="text-muted small">Aqui se evidencias los proximos servicios por dia.</p>
           <p className="text-muted small">Toca un servicio para gestionar el equipo.</p>
         </div>
 
@@ -137,7 +138,7 @@ export default function Homeadmin() {
           ) : (
             <i className="bi bi-magic fs-5"></i>
           )}
-          <span>{generando ? 'Procesando...' : 'Autocompletar Fijos'}</span>
+          <span>{generando ? 'Procesando...' : 'Generar Cronograma Automatico'}</span>
         </button>
       </div>
 

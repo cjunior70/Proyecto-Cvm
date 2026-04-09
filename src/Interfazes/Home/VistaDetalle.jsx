@@ -150,6 +150,12 @@ const VistaDetalleCronograma = () => {
         </div>
       </div>
 
+      <span className="text-secondary text-center d-block">
+        <i className="bi bi-info-circle-fill me-2 text-primary"></i>
+        <br />
+        Aquí están las áreas del servicio que seleccionó y sus servidores
+      </span>
+
       <div className="container py-4">
         {cargando && !mostrarModal ? (
           <div className="text-center py-5"><div className="spinner-border text-primary"></div></div>

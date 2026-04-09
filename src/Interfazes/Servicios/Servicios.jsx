@@ -165,10 +165,18 @@ export default function Servicios() {
 
   return (
     <section className="container py-4">
-      <h4 className="fw-bold text-center mb-4 text-uppercase" style={{letterSpacing: '2px'}}>📅 Gestión de Servicios</h4>
+      <h4 className="fw-bold text-center mb-3 text-uppercase" style={{letterSpacing: '2px'}}>
+        📅 Gestión de Servicios
+      </h4>
+      <div className="alert alert-light border-0 shadow-sm text-center mb-4 py-2" style={{borderRadius: '10px'}}>
+        <span className="text-secondary">
+          <i className="bi bi-info-circle-fill me-2 text-primary"></i>
+          Desde aquí puedes <strong>crear y organizar</strong> todos los servicios programados para este mes.
+        </span>
+      </div>
 
       <div className="d-flex justify-content-center gap-3 mb-4">
-        <button className="btn btn-dark rounded-pill px-4 shadow-sm" onClick={() => setMostrarModal(true)}>⚙ Generar Mes</button>
+        <button className="btn btn-dark rounded-pill px-4 shadow-sm" onClick={() => setMostrarModal(true)}>⚙ Generar Servicios</button>
         <button className="btn btn-primary rounded-pill px-4 shadow-sm" onClick={() => setMostrarModalCrear(true)}>➕ Nuevo Servicio</button>
       </div>
 
