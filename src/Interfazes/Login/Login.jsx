@@ -50,116 +50,175 @@ export default function Login() {
   }, [navigate]);
 
   return (
-    <div className="container-fluid min-vh-100 d-flex align-items-center justify-content-center bg-white p-3">
-      <div className="card border-0 sleek-card w-100 p-2" style={{ maxWidth: "400px" }}>
-        <div className="card-body p-4 text-center">
-          
-          <div className="mb-4">
-            <h1 className="h3 fw-light text-dark mb-1" style={{ letterSpacing: "-1px" }}>
-              Sistema <span className="fw-semibold">CVM</span>
-            </h1>
-            <p className="text-muted small fw-light">
-              Tu portal de gestión de servicios
-            </p>
-          </div>
-
-          <div className="mb-5 d-flex justify-content-center align-items-center" style={{ height: "140px" }}>
-            {cargando ? (
-              <div className="spinner-border text-dark spinner-border-sm" role="status"></div>
-            ) : (
-              <video 
+    <div className="login-wrapper">
+      <div className="card-container">
+        <div className="main-card">
+          {/* Cabecera con Branding */}
+          <div className="text-center mb-4">
+            <div className="logo-circle">
+               <video 
                 src="https://bbzhasobdrkaakqhuvpc.supabase.co/storage/v1/object/public/Video/Gif%20de%20carga.mp4"
                 autoPlay 
                 loop 
                 muted 
                 playsInline
-                className="sleek-video"
+                className="video-logo"
               />
-            )}
+            </div>
+            <h1 className="brand-title">CVM<span>Portal</span></h1>
+            <p className="brand-subtitle text-muted">Gestión de Servidores</p>
           </div>
 
-          <p className="small text-secondary fw-light mb-4 px-3">
-            {cargando 
-              ? "Confirmando tu identidad..." 
-              : "Inicia sesión con tu cuenta de Google para acceder a tu cronograma."}
-          </p>
+          {/* Sección Informativa (Para cumplir con Google) */}
+          <div className="info-box">
+            <p>Accede para gestionar tus cronogramas, turnos y servicios de la comunidad en tiempo real.</p>
+          </div>
 
-          <button
-            onClick={loginWithGoogle}
-            disabled={cargando}
-            className="btn btn-sleek w-100 d-flex align-items-center justify-content-center gap-2 py-2 shadow-sm"
-          >
-            <img
-              src="https://www.svgrepo.com/show/475656/google-color.svg"
-              alt="Google"
-              width="20"
-              className="google-icon"
-            />
-            {cargando ? "Cargando..." : "Continuar con Google"}
-          </button>
-
-          {/* 🔥 ENLACES LEGALES REQUERIDOS POR GOOGLE */}
-          <div className="mt-4 d-flex justify-content-center gap-3">
-            <a 
-              href="/privacidad.html" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-decoration-none text-muted"
-              style={{ fontSize: "12px", letterSpacing: "0.5px" }}
+          {/* Acción Principal */}
+          <div className="action-area">
+            <button
+              onClick={loginWithGoogle}
+              disabled={cargando}
+              className="google-btn"
             >
-              Privacidad
-            </a>
-            <span className="text-muted" style={{ fontSize: "12px" }}>•</span>
-            <a 
-              href="/terminos.html" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-decoration-none text-muted"
-              style={{ fontSize: "12px", letterSpacing: "0.5px" }}
-            >
-              Términos
-            </a>
+              {cargando ? (
+                <div className="spinner-border spinner-border-sm" role="status"></div>
+              ) : (
+                <>
+                  <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" />
+                  <span>Continuar con Google</span>
+                </>
+              )}
+            </button>
           </div>
-
-          <div className="mt-4 pt-3">
-            <small className="text-muted opacity-25 fw-light" style={{ fontSize: "11px" }}>
-              © {new Date().getFullYear()} Servicios CVM • All rights reserved.
-            </small>
-          </div>
-
         </div>
+
+        {/* Footer Legal (Abajo de todo) */}
+        <footer className="legal-footer">
+          <div className="legal-links">
+            <a href="/privacidad.html" target="_blank" rel="noopener noreferrer">Privacidad</a>
+            <span className="dot">•</span>
+            <a href="/terminos.html" target="_blank" rel="noopener noreferrer">Términos</a>
+          </div>
+          <p className="copyright">© {new Date().getFullYear()} Comunidad CVM • Valledupar</p>
+        </footer>
       </div>
 
       <style>{`
-        body {
-          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        .login-wrapper {
+          min-height: 100vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: #fdfdfd;
+          font-family: 'Inter', -apple-system, sans-serif;
+          padding: 20px;
         }
-        .sleek-card {
-          border-radius: 20px;
-          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.03);
-          transition: transform 0.3s ease;
+        .card-container {
+          width: 100%;
+          max-width: 400px;
+          display: flex;
+          flex-direction: column;
+          gap: 25px;
         }
-        .sleek-video {
-          width: 120px;
-          height: 120px;
-          object-fit: contain;
-          border-radius: 60px;
-          filter: drop-shadow(0 4px 10px rgba(0,0,0,0.05));
+        .main-card {
+          background: white;
+          padding: 40px 30px;
+          border-radius: 28px;
+          box-shadow: 0 10px 40px rgba(0,0,0,0.04);
+          border: 1px solid #f0f0f0;
         }
-        .btn-sleek {
-          background-color: #fcfcfc;
-          border: 1px solid #eeeeee;
-          color: #222222;
-          font-weight: 500;
+        .logo-circle {
+          width: 90px;
+          height: 90px;
+          margin: 0 auto 20px;
+          background: #fff;
+          border-radius: 25px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          overflow: hidden;
+          box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+        }
+        .video-logo {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+        .brand-title {
+          font-size: 24px;
+          font-weight: 700;
+          color: #1a1a1a;
+          margin-bottom: 5px;
+        }
+        .brand-title span {
+          color: #666;
+          font-weight: 300;
+        }
+        .brand-subtitle {
+          font-size: 14px;
+          letter-spacing: 0.5px;
+        }
+        .info-box {
+          background: #f8f9fa;
+          padding: 15px;
+          border-radius: 15px;
+          margin-bottom: 25px;
+          text-align: center;
+        }
+        .info-box p {
+          font-size: 13px;
+          color: #666;
+          margin: 0;
+          line-height: 1.5;
+        }
+        .google-btn {
+          width: 100%;
+          padding: 12px;
+          border-radius: 14px;
+          border: 1px solid #e0e0e0;
+          background: white;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 12px;
+          font-weight: 600;
           font-size: 15px;
-          border-radius: 50px;
-          transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+          transition: all 0.2s ease;
+          color: #333;
         }
-        .btn-sleek:hover {
-          background-color: #f5f5f5;
-          border-color: #e0e0e0;
+        .google-btn:hover:not(:disabled) {
+          background: #f9f9f9;
           transform: translateY(-2px);
-          box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+          box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+        .google-btn img {
+          width: 20px;
+        }
+        .legal-footer {
+          text-align: center;
+        }
+        .legal-links {
+          margin-bottom: 8px;
+        }
+        .legal-links a {
+          color: #999;
+          text-decoration: none;
+          font-size: 12px;
+          font-weight: 500;
+          transition: color 0.2s;
+        }
+        .legal-links a:hover {
+          color: #333;
+        }
+        .dot {
+          margin: 0 10px;
+          color: #ddd;
+        }
+        .copyright {
+          font-size: 11px;
+          color: #bbb;
+          margin: 0;
         }
       `}</style>
     </div>
