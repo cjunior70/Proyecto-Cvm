@@ -98,8 +98,8 @@ export default function Login() {
             {cargando ? "Cargando..." : "Continuar con Google"}
           </button>
 
-          {/* 🔥 ENLACE DE PRIVACIDAD AÑADIDO PARA GOOGLE */}
-          <div className="mt-4">
+          {/* 🔥 ENLACES LEGALES REQUERIDOS POR GOOGLE */}
+          <div className="mt-4 d-flex justify-content-center gap-3">
             <a 
               href="/privacidad.html" 
               target="_blank" 
@@ -107,7 +107,17 @@ export default function Login() {
               className="text-decoration-none text-muted"
               style={{ fontSize: "12px", letterSpacing: "0.5px" }}
             >
-              Política de Privacidad
+              Privacidad
+            </a>
+            <span className="text-muted" style={{ fontSize: "12px" }}>•</span>
+            <a 
+              href="/terminos.html" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-decoration-none text-muted"
+              style={{ fontSize: "12px", letterSpacing: "0.5px" }}
+            >
+              Términos
             </a>
           </div>
 
