@@ -65,11 +65,11 @@ export default function Servidores() {
     if (!dia || !hora || !areaId) return;
     setCargando(true);
     
-    const { error } = await supabase.rpc("fijar_disponibilidad_completa", {
+    const { error } = await supabase.rpc("proyectar_disponibilidad_mensual", {
       p_servidor_id: servidorSeleccionado.Id,
       p_dia_nombre: dia,
       p_hora: hora,
-      p_aerea_id: areaId,
+      p_aerea: areaId,
       p_estado: "Fijo",
     });
 
@@ -114,99 +114,133 @@ export default function Servidores() {
       ? ["6:00 PM", "7:30 PM"]  // <--- Actualizado aquí
       : [];
 
-  return (
-    <div className="container py-4 bg-light min-vh-100" style={{ maxWidth: "500px" }}>
-      <div className="d-flex align-items-center mb-4 px-2">
-        <div className="bg-dark text-white p-2 rounded-3 me-3">
-          <i className="bi bi-people-fill fs-4"></i>
+ return (
+    <div className="min-vh-100 bg-light pb-5">
+      {/* HEADER PREMIUM DARK */}
+      <div className="bg-dark text-white p-4 pb-5 rounded-bottom-5 shadow-lg">
+        <div className="d-flex align-items-center gap-3 mb-4">
+          <button className="btn btn-outline-light rounded-circle border-0" onClick={() => navigate(-1)}>
+            <i className="bi bi-arrow-left fs-4"></i>
+          </button>
+          <span className="fw-bold tracking-tight text-uppercase small" style={{ letterSpacing: '1px' }}>
+            Panel de Control
+          </span>
         </div>
-        <div>
-          <h5 className="fw-bold mb-0">Gestión de Servidores</h5>
-          <small className="text-muted">Asigna y fija el estado de los servidores activos aquí.</small>
+        
+        <div className="d-flex align-items-center justify-content-between">
+          <div>
+            <h2 className="fw-bold mb-0">Servidores</h2>
+            <p className="opacity-75 small mb-0">Gestiona estados y horarios fijos.</p>
+          </div>
+          <div className="bg-primary p-3 rounded-4 shadow-sm">
+            <i className="bi bi-person-gear fs-3 text-white"></i>
+          </div>
         </div>
       </div>
 
-      {servidores.map((s) => (
-        <div key={s.Id} className="card border-0 shadow-sm rounded-4 mb-2 overflow-hidden">
-          <div className="card-body d-flex align-items-center justify-content-between p-3">
-            <div className="d-flex align-items-center">
-              <img 
-                src={s.Foto || "https://ui-avatars.com/api/?name=" + s.Nombre} 
-                className="rounded-circle border shadow-sm" 
-                style={{ width: "48px", height: "48px", objectFit: "cover" }} 
-              />
-              <div className="ms-3">
-                <h6 className="fw-bold mb-0" style={{ fontSize: "0.95rem" }}>{s.Nombre}</h6>
-                <span className={`badge rounded-pill ${s.Estado === 'Fijo' ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary'}`} style={{ fontSize: '10px' }}>
-                   {s.Estado === "Fijo" ? "ASIGNADO" : "LIBRE"}
-                </span>
+      {/* LISTA DE SERVIDORES */}
+      <div className="container" style={{ marginTop: '-25px' }}>
+        <div className="row g-3">
+          {servidores.map((s) => (
+            <div key={s.Id} className="col-12 col-md-6">
+              <div className="card border-0 shadow-sm rounded-4 overflow-hidden">
+                <div className="card-body d-flex align-items-center p-3">
+                  <div className="position-relative">
+                    <img 
+                      src={s.Foto || `https://ui-avatars.com/api/?name=${s.Nombre}&background=random`} 
+                      className="rounded-circle border border-2 shadow-sm" 
+                      style={{ width: "52px", height: "52px", objectFit: "cover" }} 
+                    />
+                    <span className={`position-absolute bottom-0 end-0 p-1 border border-light rounded-circle ${s.Estado === 'Fijo' ? 'bg-success' : 'bg-secondary'}`}></span>
+                  </div>
+                  
+                  <div className="ms-3 flex-grow-1">
+                    <h6 className="fw-bold mb-1 text-dark">{s.Nombre}</h6>
+                    <span className={`badge rounded-pill ${s.Estado === 'Fijo' ? 'bg-success-subtle text-success' : 'bg-light text-muted'}`} style={{ fontSize: '9px', letterSpacing: '0.5px' }}>
+                       {s.Estado === "Fijo" ? "ESTADO: ASIGNADO" : "ESTADO: LIBRE"}
+                    </span>
+                  </div>
+
+                  <button className="btn btn-dark btn-sm rounded-pill fw-bold px-3 py-2 shadow-sm border-0" onClick={() => abrirGestion(s)}>
+                    Configurar
+                  </button>
+                </div>
               </div>
             </div>
-            <button className="btn btn-dark btn-sm rounded-pill fw-bold px-3 shadow-sm" onClick={() => abrirGestion(s)}>
-              Configurar
-            </button>
-          </div>
+          ))}
         </div>
-      ))}
+      </div>
 
+      {/* MODAL DE CONFIGURACIÓN (GLASSMORPHISM) */}
       {mostrarModal && (
-        <div className="modal fade show d-block" style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}>
+        <div className="modal fade show d-block" style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(8px)" }}>
           <div className="modal-dialog modal-dialog-centered mx-3">
-            <div className="modal-content rounded-5 border-0 shadow-lg overflow-hidden">
-              <div className="modal-header border-0 p-4 pb-0">
-                <h6 className="modal-title fw-bold fs-5">Configurar Horarios</h6>
-                <button className="btn-close" onClick={cerrarModal}></button>
+            <div className="modal-content rounded-5 border-0 shadow-2xl overflow-hidden">
+              
+              {/* HEADER MODAL DARK */}
+              <div className="bg-dark p-4 text-white border-0 d-flex justify-content-between align-items-center">
+                <div className="d-flex align-items-center">
+                   <img src={servidorSeleccionado?.Foto || `https://ui-avatars.com/api/?name=${servidorSeleccionado?.Nombre}`} className="rounded-circle border border-2 border-primary me-3" style={{width: '45px', height: '45px', objectFit: 'cover'}} />
+                   <div>
+                     <h6 className="fw-bold mb-0">{servidorSeleccionado?.Nombre}</h6>
+                     <small className="opacity-75">Configuración de Horarios</small>
+                   </div>
+                </div>
+                <button className="btn-close btn-close-white shadow-none" onClick={cerrarModal}></button>
               </div>
 
-              <div className="modal-body p-4">
-                <div className="text-center mb-4">
-                  <img src={servidorSeleccionado?.Foto} className="rounded-circle mb-2 border shadow-sm" style={{width: '60px', height: '60px', objectFit: 'cover'}} />
-                  <h5 className="fw-bold mb-0 text-primary">{servidorSeleccionado?.Nombre}</h5>
-                </div>
-
-                <label className="small fw-bold text-uppercase text-secondary mb-2 d-block" style={{ fontSize: "11px", letterSpacing: '1px' }}>
-                   <i className="bi bi-calendar-check me-1"></i> Lista de Asignaciones (Mensual)
+              <div className="modal-body p-4 pt-4 bg-white">
+                <label className="small fw-bold text-uppercase text-primary mb-3 d-block" style={{ fontSize: "11px", letterSpacing: '1px' }}>
+                   <i className="bi bi-calendar-check-fill me-2"></i>Asignaciones Mensuales
                 </label>
                 
-                {/* CONTENEDOR CON SCROLL PARA EVITAR DUPLICADOS VISUALMENTE MOLESTOS */}
-                <div style={{ maxHeight: '250px', overflowY: 'auto', paddingRight: '5px' }} className="mb-3">
-                  {asignaciones.map((a) => (
-                    <div key={a.id} className="d-flex justify-content-between align-items-center p-2 mb-2 rounded-4 bg-white border shadow-sm border-start border-primary border-4">
-                      <div className="ms-2">
-                        <span className="fw-bold d-block text-dark" style={{ fontSize: "0.85rem" }}>
-                          {/* Mostramos la fecha formateada: ej. "Dom, 5 abr" */}
-                          {a.Dia} {a.Fecha ? new Date(a.Fecha + 'T00:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }) : ''}
-                        </span>
-                        <div className="d-flex align-items-center gap-2">
-                          <span className="badge bg-primary-subtle text-primary" style={{ fontSize: "9px" }}>{a.Hora}</span>
-                          <span className="text-muted" style={{ fontSize: "10px" }}>{a.Aerea?.Nombre}</span>
-                        </div>
-                      </div>
-                      <button className="btn btn-sm text-danger border-0" onClick={() => eliminarAsignacion(a.id)}>
-                        <i className="bi bi-x-circle-fill fs-6"></i>
-                      </button>
+                {/* LISTA DE ASIGNACIONES CON DISEÑO DE CARDS PEQUEÑAS */}
+                <div className="custom-scroll mb-4" style={{ maxHeight: '200px', overflowY: 'auto', paddingRight: '5px' }}>
+                  {asignaciones.length === 0 ? (
+                    <div className="text-center py-4 bg-light rounded-4 opacity-50">
+                      <small>No tiene horarios fijos asignados.</small>
                     </div>
-                  ))}
+                  ) : (
+                    asignaciones.map((a) => (
+                      <div key={a.id} className="d-flex justify-content-between align-items-center p-3 mb-2 rounded-4 bg-white border border-light shadow-sm border-start border-primary border-4 animate-fade-in">
+                        <div>
+                          <span className="fw-bold d-block text-dark text-capitalize" style={{ fontSize: "0.85rem" }}>
+                            {a.Dia} {a.Fecha ? new Date(a.Fecha + 'T00:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }) : ''}
+                          </span>
+                          <div className="d-flex align-items-center gap-2 mt-1">
+                            <span className="badge bg-primary-subtle text-primary fw-bold" style={{ fontSize: "9px" }}>{a.Hora}</span>
+                            <span className="text-muted fw-medium" style={{ fontSize: "10px" }}>{a.Aerea?.Nombre}</span>
+                          </div>
+                        </div>
+                        <button className="btn btn-light btn-sm rounded-circle text-danger shadow-sm" onClick={() => eliminarAsignacion(a.id)}>
+                          <i className="bi bi-trash3-fill"></i>
+                        </button>
+                      </div>
+                    ))
+                  )}
                 </div>
 
-                <div className="p-3 bg-light rounded-4">
-                  <label className="small fw-bold text-uppercase text-secondary mb-2 d-block" style={{ fontSize: "11px" }}>+ Nuevo Horario Fijo</label>
+                {/* FORMULARIO DE NUEVA ASIGNACIÓN CON ESTILO DROPDOWN */}
+                <div className="p-3 bg-light rounded-5 border border-white">
+                  <label className="small fw-bold text-uppercase text-secondary mb-3 d-block text-center" style={{ fontSize: "10px" }}>Nuevo Horario Fijo</label>
                   
-                  <select className="form-select mb-2 rounded-3 shadow-sm border-0" value={areaId} onChange={(e) => setAreaId(e.target.value)}>
-                    <option value="">Seleccionar Área...</option>
-                    {areasPermitidas.map(a => <option key={a.Id} value={a.Id}>{a.Nombre}</option>)}
-                  </select>
+                  <div className="mb-2 position-relative">
+                    <select className="form-select rounded-4 shadow-sm border-0 py-2 ps-4" value={areaId} onChange={(e) => setAreaId(e.target.value)}>
+                      <option value="">Seleccionar Área...</option>
+                      {areasPermitidas.map(a => <option key={a.Id} value={a.Id}>{a.Nombre}</option>)}
+                    </select>
+                  </div>
 
                   <div className="row g-2">
                     <div className="col-6">
-                      <select className="form-select rounded-3 shadow-sm border-0" value={dia} onChange={(e) => { setDia(e.target.value); setHora(""); }}>
+                      <select className="form-select rounded-4 shadow-sm border-0 py-2" value={dia} onChange={(e) => { setDia(e.target.value); setHora(""); }}>
                         <option value="">Día</option>
                         <option value="Domingo">Domingo</option>
                         <option value="Miércoles">Miércoles</option>
                       </select>
                     </div>
                     <div className="col-6">
-                      <select className="form-select rounded-3 shadow-sm border-0" value={hora} onChange={(e) => setHora(e.target.value)} disabled={!dia}>
+                      <select className="form-select rounded-4 shadow-sm border-0 py-2" value={hora} onChange={(e) => setHora(e.target.value)} disabled={!dia}>
                         <option value="">Hora</option>
                         {horasOpciones.map(h => <option key={h} value={h}>{h}</option>)}
                       </select>
@@ -214,23 +248,40 @@ export default function Servidores() {
                   </div>
 
                   <button 
-                    className="btn btn-primary w-100 rounded-pill mt-3 fw-bold py-2 shadow" 
+                    className="btn btn-primary w-100 rounded-pill mt-4 fw-bold py-3 shadow-lg border-0 transition-all" 
                     onClick={guardarNuevaAsignacion} 
                     disabled={cargando || !hora || !areaId}
-                    style={{ background: 'linear-gradient(45deg, #0d6efd, #00d4ff)', border: 'none' }}
+                    style={{ background: 'linear-gradient(45deg, #0d6efd, #00d4ff)' }}
                   >
-                    {cargando ? "Guardando..." : "Asignar Horario"}
+                    {cargando ? (
+                      <span className="spinner-border spinner-border-sm me-2"></span>
+                    ) : (
+                      <i className="bi bi-plus-circle-fill me-2"></i>
+                    )}
+                    Asignar Horario
                   </button>
                 </div>
               </div>
 
               <div className="p-3 bg-white text-center border-0 pb-4">
-                <button className="btn btn-link btn-sm text-decoration-none text-muted fw-bold" onClick={cerrarModal}>Cerrar</button>
+                <button className="btn btn-link btn-sm text-decoration-none text-muted fw-bold" onClick={cerrarModal}>CERRAR PANEL</button>
               </div>
             </div>
           </div>
         </div>
       )}
+
+      {/* ESTILOS REUTILIZADOS */}
+      <style>{`
+        .rounded-bottom-5 { border-bottom-left-radius: 45px; border-bottom-right-radius: 45px; }
+        .shadow-2xl { box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4); }
+        .custom-scroll::-webkit-scrollbar { width: 3px; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #0d6efd; border-radius: 10px; }
+        .transition-all { transition: all 0.2s ease-in-out; }
+        .transition-all:active { transform: scale(0.96); opacity: 0.9; }
+        .animate-fade-in { animation: fadeIn 0.4s ease forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+      `}</style>
     </div>
   );
 }

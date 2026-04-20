@@ -1,154 +1,162 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { supabase } from "../../../Supabase/cliente";
-import { obtenerProximoDiaConServicios } from "./serviciosProximos";
-import { generarCronogramaAutomatico } from "./generarCronogramaAutomatico";
+import CardDiaCalendario from "../Componentes/CardDiaCalendario"; 
+import { generarCronogramaAutomatico } from "./generarCronogramaAutomatico"; 
+import Swal from "sweetalert2"; // Librería para mensajes elegantes
 
 export default function Homeadmin() {
-  const [servicios, setServicios] = useState([]);
+  const [agenda, setAgenda] = useState({});
+  const [cargando, setCargando] = useState(true);
   const [generando, setGenerando] = useState(false);
-  const [cargandoLista, setCargandoLista] = useState(true);
-  const navigate = useNavigate();
+  const [adminName, setAdminName] = useState("Rey");
 
-  useEffect(() => {
-    cargarServicios();
-  }, []);
-
-  const cargarServicios = async () => {
-    setCargandoLista(true);
+  const cargar = async () => {
+    setCargando(true);
     try {
-      const data = await obtenerProximoDiaConServicios();
-      setServicios(data || []);
+      const { data: { user } } = await supabase.auth.getUser();
+      setAdminName(user?.user_metadata?.full_name?.split(" ")[0] || "Rey");
+
+      const hoy = new Date().toISOString().split('T')[0];
+      const { data } = await supabase
+        .from("Servicio")
+        .select("*")
+        .gte("Fecha", hoy)
+        .order("Fecha", { ascending: true });
+
+      const agrupados = (data || []).reduce((acc, s) => {
+        acc[s.Fecha] = acc[s.Fecha] || [];
+        acc[s.Fecha].push(s);
+        return acc;
+      }, {});
+
+      setAgenda(agrupados);
     } catch (error) {
-      console.error("Error al cargar servicios:", error);
+      console.error("Error cargando agenda:", error);
     } finally {
-      setCargandoLista(false);
+      setCargando(false);
     }
   };
 
+  useEffect(() => {
+    cargar();
+  }, []);
+
   const manejarGeneracion = async () => {
-    if (servicios.length === 0) return;
-    setGenerando(true);
-    await generarCronogramaAutomatico(servicios, () => {
-      cargarServicios();
+    const confirmacion = await Swal.fire({
+      title: '¿Automatizar Cronograma?',
+      text: "Se asignarán servidores fijos a todos los servicios del próximo mes.",
+      icon: 'magic', // Icono de magia si la librería lo soporta o 'question'
+      showCancelButton: true,
+      confirmButtonColor: '#0d6efd',
+      cancelButtonColor: '#6c757d',
+      confirmButtonText: 'Sí, automatizar',
+      cancelButtonText: 'Cancelar',
+      reverseButtons: true
     });
-    setGenerando(false);
+
+    if (!confirmacion.isConfirmed) return;
+
+    setGenerando(true);
+    try {
+      const resultado = await generarCronogramaAutomatico();
+      
+      if (resultado > 0) {
+        await Swal.fire({
+          title: '¡Proceso Completado!',
+          text: `Se han realizado ${resultado} asignaciones automáticas con éxito.`,
+          icon: 'success',
+          timer: 2500,
+          showConfirmButton: false
+        });
+        await cargar();
+      } else {
+        Swal.fire('Sin novedades', 'No se encontraron servidores fijos pendientes por asignar.', 'info');
+      }
+    } catch (err) {
+      Swal.fire('Error', 'Hubo un fallo en la base de datos: ' + err.message, 'error');
+    } finally {
+      setGenerando(false);
+    }
   };
 
   return (
-    <div className="bg-light min-vh-100 pb-5">
-      {/* --- NAVBAR ESTILO APP --- */}
-      <nav className="navbar navbar-dark bg-dark shadow-sm mb-4 py-3 sticky-top">
-        <div className="container-fluid px-3">
-          <span className="navbar-brand mb-0 h1 fw-bold">
-            <i className="bi bi-grid-fill me-2 text-primary"></i>
-            Admin Panel
-          </span>
-          <div className="d-flex">
-            <button className="btn btn-outline-light btn-sm rounded-pill px-3" onClick={cargarServicios}>
-              <i className="bi bi-arrow-clockwise"></i>
-            </button>
+    <div className="bg-light min-vh-100 pb-5 position-relative">
+      
+      {/* HEADER TOP */}
+      <div className="bg-dark text-white p-4 pb-5 rounded-bottom-5 shadow-lg">
+        <div className="d-flex justify-content-between align-items-center">
+          <div>
+            <h2 className="fw-bold mb-0">¡Bienvenido, {adminName}!</h2>
+            <p className="opacity-75 small mb-0">Gestión de Agenda CVM</p>
+          </div>
+          <div className="bg-primary p-2 rounded-circle shadow-sm">
+             <i className="bi bi-person-badge fs-4"></i>
           </div>
         </div>
-      </nav>
-
-      <div className="container" style={{ maxWidth: '650px' }}>
-        
-        {/* --- TÍTULO DE SECCIÓN --- */}
-        <div className="px-2 mb-3">
-          <h5 className="fw-bold text-dark mb-1">Próxima Agenda</h5>
-          <p className="text-muted small">Aqui se evidencias los proximos servicios por dia.</p>
-          <p className="text-muted small">Toca un servicio para gestionar el equipo.</p>
-        </div>
-
-        {/* --- CONTENEDOR DE CARDS --- */}
-        <div className="row g-3 px-2">
-          {cargandoLista ? (
-            <div className="col-12 text-center py-5">
-              <div className="spinner-border text-primary" role="status"></div>
-            </div>
-          ) : (
-            servicios.map((s) => (
-              <div key={s.Id} className="col-12">
-                <div 
-                  className="card border-0 shadow-sm rounded-4 overflow-hidden position-relative h-100"
-                  style={{ cursor: 'pointer', transition: 'transform 0.2s' }}
-                  onClick={() => navigate('/VistaDetalleCronograma', { state: { servicio: s } })}
-                  onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.01)'}
-                  onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                >
-                  {/* Borde lateral según tipo */}
-                  <div 
-                    className={`position-absolute h-100 ${s.Tipo === 'Domingo' ? 'bg-primary' : 'bg-info'}`} 
-                    style={{ width: '5px', left: 0, top: 0 }}
-                  ></div>
-
-                  <div className="card-body p-3 ps-4">
-                    <div className="d-flex justify-content-between align-items-center">
-                      <div>
-                        <div className="badge bg-dark-subtle text-dark rounded-pill mb-2 px-3 py-2 fw-bold" style={{ fontSize: '0.75rem' }}>
-                          {s.Jornada}
-                        </div>
-                        <h6 className="fw-bold mb-1 text-dark fs-5">{s.Tipo}</h6>
-                        <div className="text-muted small">
-                          <i className="bi bi-calendar-event me-2"></i>
-                          {new Date(s.Fecha + "T00:00:00").toLocaleDateString('es-ES', { 
-                            weekday: 'long', day: 'numeric', month: 'short' 
-                          })}
-                        </div>
-                      </div>
-                      <div className="bg-light p-3 rounded-circle text-primary shadow-sm">
-                        <i className="bi bi-chevron-right fs-5"></i>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))
-          )}
-
-          {/* --- EMPTY STATE --- */}
-          {!cargandoLista && servicios.length === 0 && (
-            <div className="col-12">
-              <div className="card border-0 shadow-sm rounded-4 p-5 text-center bg-white">
-                <i className="bi bi-calendar2-x fs-1 text-muted mb-3"></i>
-                <h6 className="fw-bold">No hay servicios próximos</h6>
-                <p className="text-muted small">Todo está al día por ahora.</p>
-              </div>
-            </div>
-          )}
-        </div>
       </div>
 
-      {/* --- BOTÓN FLOTANTE (Bootstrap FAB) --- */}
-      <div className="fixed-bottom d-flex justify-content-center mb-5 pb-5" style={{ pointerEvents: 'none' }}>
-        <button 
-          className={`btn btn-primary shadow-lg rounded-pill px-4 py-3 fw-bold border-0 d-flex align-items-center gap-2 ${generando ? 'disabled' : ''}`}
-          style={{ 
-            pointerEvents: 'auto', 
-            zIndex: 1050,
-            background: 'linear-gradient(45deg, #0d6efd, #0dCAF0)',
-            boxShadow: '0 8px 20px rgba(13, 110, 253, 0.4)'
-          }}
-          onClick={manejarGeneracion}
-          disabled={generando || servicios.length === 0}
-        >
-          {generando ? (
-            <span className="spinner-border spinner-border-sm" role="status"></span>
-          ) : (
-            <i className="bi bi-magic fs-5"></i>
-          )}
-          <span>{generando ? 'Procesando...' : 'Generar Cronograma Automatico'}</span>
-        </button>
+      {/* CONTENIDO DE LA AGENDA */}
+      <div className="container" style={{ marginTop: '-25px' }}>
+        {cargando ? (
+          <div className="text-center py-5">
+            <div className="spinner-border text-primary" role="status"></div>
+            <p className="mt-2 text-muted">Sincronizando...</p>
+          </div>
+        ) : Object.keys(agenda).length === 0 ? (
+          <div className="text-center py-5 bg-white rounded-4 shadow-sm">
+            <i className="bi bi-calendar-x fs-1 text-muted"></i>
+            <p className="mt-2">No hay servicios próximos.</p>
+          </div>
+        ) : (
+          Object.entries(agenda).map(([fecha, servicios]) => (
+            <CardDiaCalendario key={fecha} fecha={fecha} servicios={servicios} />
+          ))
+        )}
       </div>
 
-      {/* --- ESTILOS EXTRA --- */}
+      {/* BOTÓN FLOTANTE (FAB) */}
+      <button 
+        onClick={manejarGeneracion}
+        disabled={generando}
+        className="btn btn-primary d-flex flex-column align-items-center justify-content-center shadow-lg border-0"
+        style={{ 
+          position: 'fixed',
+          bottom: '20vw', 
+          right: '25px', 
+          width: '75px', 
+          height: '75px', 
+          borderRadius: '40px', // Estilo moderno tipo iOS/Squircle
+          zIndex: '9999', 
+          background: 'linear-gradient(135deg, #0d6efd 0%, #00d4ff 100%)',
+          border: '4px solid white !important',
+          transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
+        }}
+      >
+        {generando ? (
+          <span className="spinner-border spinner-border-sm"></span>
+        ) : (
+          <>
+            <i className="bi bi-magic fs-3"></i>
+            <span style={{ fontSize: '9px', fontWeight: '900', textTransform: 'uppercase', marginTop: '2px' }}>Auto</span>
+          </>
+        )}
+      </button>
+
+      {/* ESTILOS DINÁMICOS */}
       <style>{`
-        .navbar-brand { font-size: 1.2rem; letter-spacing: -0.5px; }
-        .card { transition: all 0.3s ease; }
-        .card:active { transform: scale(0.98) !important; }
-        .btn-primary:active { transform: translateY(2px); }
+        .rounded-bottom-5 { 
+            border-bottom-left-radius: 40px; 
+            border-bottom-right-radius: 40px; 
+        }
+        button:hover {
+            transform: translateY(-8px) scale(1.05);
+            box-shadow: 0 15px 30px rgba(13, 110, 253, 0.4) !important;
+        }
+        button:active {
+            transform: scale(0.9);
+        }
       `}</style>
+
     </div>
   );
 }

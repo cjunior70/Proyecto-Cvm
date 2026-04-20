@@ -1,41 +1,51 @@
-// serviciosProximos.js
-
 import { supabase } from "../../../Supabase/cliente";
 
-export const obtenerProximoDiaConServicios = async () => {
+/**
+ * Obtiene los servicios de un día específico o del próximo día disponible.
+ * @param {string} fechaForzada - Opcional. Fecha en formato "YYYY-MM-DD".
+ */
+export const obtenerProximoDiaConServicios = async (fechaForzada = null) => {
   try {
-    const hoy = new Date();
-    const fechaHoy = hoy.toISOString().split("T")[0];
+    const hoy = new Date().toISOString().split("T")[0];
+    
+    // Si recibimos una fecha, buscamos esa. Si no, buscamos desde hoy en adelante.
+    const fechaABuscar = fechaForzada || hoy;
 
-    // 1️⃣ Traer servicios desde hoy en adelante ordenados por fecha y jornada
-    const { data, error } = await supabase
+    let query = supabase
       .from("Servicio")
       .select("*")
-      .gte("Fecha", fechaHoy)
       .order("Fecha", { ascending: true })
       .order("Jornada", { ascending: true });
+
+    // Si es una fecha específica, usamos el igual (=). 
+    // Si es "el próximo", usamos mayor o igual (>=).
+    if (fechaForzada) {
+      query = query.eq("Fecha", fechaForzada);
+    } else {
+      query = query.gte("Fecha", hoy);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       console.error("Error obteniendo servicios:", error);
       return [];
     }
 
-    if (!data || data.length === 0) {
-      return [];
+    if (!data || data.length === 0) return [];
+
+    // Si buscamos el "próximo disponible" (sin fechaForzada), 
+    // filtramos para quedarnos solo con el primer día que aparezca en la lista.
+    if (!fechaForzada) {
+      const primeraFechaEncontrada = data[0].Fecha;
+      return data.filter(servicio => servicio.Fecha === primeraFechaEncontrada);
     }
 
-    // 2️⃣ Encontrar la primera fecha disponible
-    const primeraFecha = data[0].Fecha;
-
-    // 3️⃣ Filtrar todos los servicios que tengan esa fecha
-    const serviciosDelDia = data.filter(
-      (servicio) => servicio.Fecha === primeraFecha
-    );
-
-    return serviciosDelDia;
+    // Si buscamos una fecha específica, devolvemos todo lo que encontró para ese día.
+    return data;
 
   } catch (err) {
-    console.error("Error general:", err);
+    console.error("Error general en serviciosProximos:", err);
     return [];
   }
 };
