@@ -107,31 +107,66 @@ export default function Areas() {
   }
 
   return (
-    <section className="container py-4">
+  <div className="min-vh-100 bg-light pb-5">
+    {/* HEADER PREMIUM DARK */}
+    <div className="bg-dark text-white p-4 pb-5 rounded-bottom-5 shadow-lg">
+      <div className="d-flex align-items-center gap-3 mb-4">
+        <button className="btn btn-outline-light rounded-circle border-0" onClick={() => navigate(-1)}>
+          <i className="bi bi-arrow-left fs-4"></i>
+        </button>
+        <span className="fw-bold tracking-tight text-uppercase small" style={{ letterSpacing: '1px' }}>
+          Configuración de Cuenta
+        </span>
+      </div>
       
-      {/* SECCIÓN 1: MIS ÁREAS (Carrusel horizontal) */}
+      <div className="d-flex justify-content-between align-items-end">
+        <div>
+          <h2 className="fw-bold mb-0">Mis Equipos</h2>
+          <p className="opacity-75 small mb-0">Gestiona las áreas donde deseas servir.</p>
+        </div>
+        <div className="bg-primary rounded-4 p-2 shadow-lg animate__animated animate__pulse animate__infinite">
+          <i className="bi bi-person-workspace fs-4"></i>
+        </div>
+      </div>
+    </div>
+
+    <div className="container" style={{ marginTop: '-25px' }}>
+      
+      {/* SECCIÓN 1: MIS ÁREAS (Carrusel Premium) */}
       <div className="mb-5">
-        <div className="d-flex align-items-center mb-3">
-          <div className="bg-primary rounded-circle p-2 me-2" style={{width: '10px', height: '10px'}}></div>
-          <h5 className="fw-bold m-0">Mis áreas asignadas</h5>
+        <div className="d-flex align-items-center justify-content-between mb-3 px-2">
+          <div className="d-flex align-items-center">
+            <i className="bi bi-check-circle-fill text-primary me-2"></i>
+            <h6 className="fw-bold m-0 text-dark text-uppercase small tracking-wider">Mis áreas asignadas</h6>
+          </div>
+          <span className="badge rounded-pill bg-primary-subtle text-primary px-3">
+            {misAereas.length}
+          </span>
         </div>
 
-        <div className="d-flex gap-3 overflow-auto pb-3 custom-scrollbar">
+        <div className="d-flex gap-3 overflow-auto pb-3 ps-2 custom-scrollbar hide-scrollbar-on-mobile">
           {misAereas.length === 0 ? (
-            <div className="card card-body border-dashed text-center py-4 rounded-4 bg-light w-100">
-              <p className="text-muted mb-0">Aún no tienes áreas bajo tu cargo.</p>
+            <div className="card card-body border-dashed text-center py-5 rounded-5 bg-white w-100 shadow-sm">
+              <i className="bi bi-plus-circle opacity-25 fs-1 mb-2"></i>
+              <p className="text-muted small fw-medium">Aún no te has unido a ningún equipo.</p>
             </div>
           ) : (
             misAereas.map((area) => (
               <div
                 key={area.Id}
-                className="flex-shrink-0"
-                style={{ cursor: "pointer", transition: "transform 0.2s" }}
+                className="flex-shrink-0 card-touch-effect"
+                style={{ width: "240px" }}
                 onClick={() => abrirModalQuitar(area)}
-                onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
-                onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
               >
-                <AreaCard area={area} />
+                <div className="card border-0 shadow-sm rounded-5 overflow-hidden position-relative h-100 border-2-hover-primary">
+                  <AreaCard area={area} />
+                  {/* Overlay sutil para indicar que es clickeable */}
+                  <div className="position-absolute top-0 end-0 m-2">
+                    <span className="badge rounded-circle bg-dark bg-opacity-50 p-2">
+                      <i className="bi bi-gear-fill"></i>
+                    </span>
+                  </div>
+                </div>
               </div>
             ))
           )}
@@ -139,55 +174,66 @@ export default function Areas() {
       </div>
 
       {/* SECCIÓN 2: ÁREAS DISPONIBLES */}
-      <section>
-        <div className="d-flex align-items-center mb-3">
-          <div className="bg-secondary rounded-circle p-2 me-2" style={{width: '10px', height: '10px'}}></div>
-          <h5 className="fw-bold m-0">Áreas disponibles para unirse</h5>
+      <section className="animate__animated animate__fadeInUp">
+        <div className="d-flex align-items-center mb-3 px-2">
+          <i className="bi bi-plus-circle-dotted text-secondary me-2"></i>
+          <h6 className="fw-bold m-0 text-dark text-uppercase small tracking-wider">Explorar nuevas áreas</h6>
         </div>
 
-        <div className="d-flex gap-3 overflow-auto pb-3 custom-scrollbar">
+        <div className="d-flex gap-3 overflow-auto pb-3 ps-2 custom-scrollbar">
           {areasDisponibles.length === 0 ? (
-            <p className="text-muted">No hay más áreas disponibles por ahora.</p>
+            <div className="p-4 text-center w-100">
+              <p className="text-muted small">¡Felicidades! Ya eres parte de todos los equipos disponibles.</p>
+            </div>
           ) : (
             areasDisponibles.map((area) => (
-              <div key={area.Id} className="flex-shrink-0">
-                <AreaCard
-                  area={area}
-                  mostrarBoton={true}
-                  onRegistrar={() => registrarArea(area)}
-                />
+              <div key={area.Id} className="flex-shrink-0 card-touch-effect" style={{ width: "240px" }}>
+                <div className="card border-0 shadow-sm rounded-5 overflow-hidden h-100">
+                  <AreaCard
+                    area={area}
+                    mostrarBoton={true}
+                    onRegistrar={() => registrarArea(area)}
+                  />
+                </div>
               </div>
             ))
           )}
         </div>
       </section>
 
-      {/* ───── MODAL QUITAR ÁREA ───── */}
+      {/* MODAL QUITAR ÁREA (GLASSMORPHISM) */}
       {mostrarModalQuitar && areaSeleccionada && (
-        <div className="modal show d-block" style={{ backgroundColor: "rgba(0,0,0,.6)", backdropFilter: "blur(4px)" }}>
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content border-0 rounded-4 shadow-lg">
-              <div className="modal-header border-0 pb-0">
-                <h5 className="fw-bold m-0 text-primary">{areaSeleccionada.Nombre}</h5>
-                <button className="btn-close" onClick={() => setMostrarModalQuitar(false)} />
-              </div>
-
-              <div className="modal-body text-center p-4">
+        <div className="modal show d-block" style={{ backgroundColor: "rgba(0,0,0,.7)", backdropFilter: "blur(10px)" }}>
+          <div className="modal-dialog modal-dialog-centered px-3">
+            <div className="modal-content border-0 rounded-5 shadow-2xl animate__animated animate__zoomIn animate__faster overflow-hidden">
+              <div className="position-relative">
                 <img
-                  src={areaSeleccionada.Foto || 'https://via.placeholder.com/400'}
-                  className="img-fluid rounded-4 mb-3 shadow-sm"
-                  style={{ maxHeight: "200px", width: "100%", objectFit: "cover" }}
+                  src={areaSeleccionada.Foto || 'https://images.unsplash.com/photo-1521737711867-e3b97375f902?q=80&w=500'}
+                  className="w-100 shadow-sm"
+                  style={{ height: "220px", objectFit: "cover" }}
                 />
-                <p className="text-secondary">{areaSeleccionada.Descripcion || "Sin descripción disponible."}</p>
+                <div className="position-absolute bottom-0 start-0 w-100 p-4 bg-gradient-dark-transparent">
+                  <h4 className="fw-bold text-white m-0">{areaSeleccionada.Nombre}</h4>
+                </div>
+                <button 
+                  className="btn-close btn-close-white position-absolute top-0 end-0 m-3 shadow-none" 
+                  onClick={() => setMostrarModalQuitar(false)} 
+                />
               </div>
 
-              <div className="modal-footer border-0 pt-0 d-flex gap-2">
-                <button className="btn btn-light rounded-pill flex-grow-1 fw-bold" onClick={() => setMostrarModalQuitar(false)}>
-                  Volver
-                </button>
-                <button className="btn btn-danger rounded-pill flex-grow-1 fw-bold" onClick={salirArea}>
-                  Abandonar área
-                </button>
+              <div className="modal-body p-4 bg-white">
+                <p className="text-secondary small leading-relaxed mb-4">
+                  {areaSeleccionada.Descripcion || "Este equipo está esperando por tu talento. Revisa tus cronogramas después de unirte."}
+                </p>
+                
+                <div className="d-flex flex-column gap-2">
+                   <button className="btn btn-danger rounded-pill py-3 fw-bold shadow-sm d-flex align-items-center justify-content-center gap-2" onClick={salirArea}>
+                    <i className="bi bi-box-arrow-right"></i> Abandonar este equipo
+                  </button>
+                  <button className="btn btn-light rounded-pill py-3 fw-bold text-muted border-0" onClick={() => setMostrarModalQuitar(false)}>
+                    Mantener asignación
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -195,11 +241,24 @@ export default function Areas() {
       )}
 
       <style>{`
-        .custom-scrollbar::-webkit-scrollbar { height: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #ccc; border-radius: 10px; }
+        .rounded-bottom-5 { border-bottom-left-radius: 45px; border-bottom-right-radius: 45px; }
+        .custom-scrollbar::-webkit-scrollbar { height: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #dee2e6; border-radius: 10px; }
         .border-dashed { border: 2px dashed #dee2e6; }
+        .tracking-wider { letter-spacing: 1.5px; }
+        .bg-gradient-dark-transparent { background: linear-gradient(transparent, rgba(0,0,0,0.8)); }
+        .shadow-2xl { box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); }
+        .card-touch-effect { transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); cursor: pointer; }
+        .card-touch-effect:active { transform: scale(0.95); }
+        .border-2-hover-primary { border: 2px solid transparent !important; transition: 0.3s; }
+        .border-2-hover-primary:hover { border-color: #0d6efd !important; }
+        
+        @media (max-width: 768px) {
+          .hide-scrollbar-on-mobile::-webkit-scrollbar { display: none; }
+        }
       `}</style>
-    </section>
+    </div>
+    </div>
   );
 }

@@ -1,7 +1,9 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
-import { useEffect } from 'react' // Importamos useEffect
+import { useEffect } from 'react'
 import { supabase } from '../Supabase/cliente'
 import './App.css'
+
+// Importaciones existentes
 import Login from './Interfazes/Login/Login'
 import Aereas from './Interfazes/Aereas/Aereas'
 import Cronograma from './Interfazes/Cronograma/Cronograma'
@@ -14,26 +16,18 @@ import Servidores from './Interfazes/Servidores/Servidores'
 import AreasAdmin from './Interfazes/Aereas/AreasAdmin'
 import Homeadmin from './Interfazes/Home/Homeadmin'
 import VistaDetalleCronograma from './Interfazes/Home/VistaDetalle'
+import CalendarioServicios from './Interfazes/Home/CalendarioServicios' 
 
 function App() {
 
   useEffect(() => {
-    // 1. Escuchar cambios en la autenticación
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      
-      // Si el evento es un inicio de sesión exitoso
       if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
-        
-        // Si hay un hash en la URL (#access_token...), lo limpiamos
         if (window.location.hash) {
-          // Esto elimina el token de la barra de direcciones sin recargar la página
           window.history.replaceState({}, document.title, window.location.pathname);
-          console.log("Token procesado y URL limpiada con éxito.");
         }
       }
     });
-
-    // Limpiar el listener al desmontar el componente
     return () => subscription.unsubscribe();
   }, []);
 
@@ -41,19 +35,24 @@ function App() {
     <>
       <BrowserRouter>
         <Routes>
-            {/* Login */}
+            {/* Login - Fuera de la Barra */}
             <Route path='/' element={<Login/>}/>
 
-            {/* Rutas con Barra Lateral/Superior */}
+            {/* Rutas Protegidas con Barra Lateral/Superior */}
             <Route element={<Barra/>}>
+              <Route path='/Home' element={<Home/>}/>
+              <Route path='/Homeadmin' element={<Homeadmin/>}/>
+              
+              {/* Calendario y Detalle */}
+              <Route path='/CalendarioServicios' element={<CalendarioServicios/>}/>
+              <Route path='/VistaDetalleCronograma' element={<VistaDetalleCronograma/>}/>
+              
+              {/* Configuración y Gestión */}
               <Route path='/Aereas' element={<Aereas/>}/>
               <Route path='/AereasAdmins' element={<AreasAdmin/>}/>
               <Route path='/Cronograma' element={<Cronograma/>}/>
               <Route path='/DatosPersonales' element={<DatosPersonales/>}/>
               <Route path='/Disponibilidad' element={<Disponibilidad/>}/>
-              <Route path='/Home' element={<Home/>}/>
-              <Route path='/VistaDetalleCronograma' element={<VistaDetalleCronograma/>}/>
-              <Route path='/Homeadmin' element={<Homeadmin/>}/>
               <Route path='/Servicios' element={<Servicios/>}/>
               <Route path='/Servidores' element={<Servidores/>}/>
             </Route>

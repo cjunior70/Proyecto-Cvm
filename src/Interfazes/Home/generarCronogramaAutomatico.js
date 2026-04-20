@@ -1,44 +1,47 @@
 import { supabase } from "../../../Supabase/cliente";
 import Swal from "sweetalert2";
 
-export const generarCronogramaAutomatico = async (servicios, alTerminar) => {
-  if (!servicios || servicios.length === 0) return;
-
+export const generarCronogramaAutomatico = async (alTerminar) => {
   try {
-    // Recorremos los servicios para ejecutar las funciones en la base de datos
-    for (const servicio of servicios) {
-      
-      // 1. Ejecutar Fijos
-      await supabase.rpc("asignar_servidores_fijos", { 
-        p_fecha: servicio.Fecha 
-      });
+    // 1. Ejecutar el motor para servidores con fecha fija
+    const { data: dataFijos, error: errorFijos } = await supabase.rpc(
+      "automatizar_cronograma_proximo_mes"
+    );
+    if (errorFijos) throw errorFijos;
 
-      // 2. Ejecutar Disponibles (Llenar huecos)
-      await supabase.rpc("asignar_comodines_disponibles", { 
-        p_fecha: servicio.Fecha 
-      });
-    }
+    // 2. Ejecutar el motor de comodines (el que acabamos de crear)
+    const { data: dataComodines, error: errorComodines } = await supabase.rpc(
+      "asignar_comodines_proximo_mes"
+    );
+    if (errorComodines) throw errorComodines;
 
-    // Mensaje de éxito minimalista
+    // 3. Extraer los conteos (asumiendo que tus funciones retornan un entero o un objeto con total_asignados)
+    // Nota: Como definimos la función con RETURNS TABLE, data suele ser un array de objetos
+    const conteoFijos = dataFijos?.[0]?.total_asignados || 0;
+    const conteoComodines = dataComodines?.[0]?.total_asignados || 0;
+    const totalGeneral = conteoFijos + conteoComodines;
+
+    // Mensaje de éxito inteligente
     Swal.fire({
-      title: "¡Cronograma Listo!",
-      text: "Se han completado las asignaciones para los próximos servicios.",
+      title: "¡Cronograma Generado!",
+      text: `Se han realizado ${totalGeneral} asignaciones en total para el próximo mes.`,
       icon: "success",
       confirmButtonColor: "#0d6efd",
-      timer: 2500,
-      showConfirmButton: false // Se cierra solo para mayor fluidez
+      timer: 3500,
+      showConfirmButton: false
     });
 
-    // Refrescar la vista
     if (alTerminar) alTerminar();
+    return totalGeneral;
 
   } catch (error) {
     console.error("Error en la generación:", error);
     Swal.fire({
-      title: "Nota",
-      text: "Hubo un inconveniente al procesar algunos turnos.",
+      title: "Error de Procesamiento",
+      text: "Hubo un problema: " + (error.message || "Error desconocido"),
       icon: "error",
       confirmButtonColor: "#dc3545"
     });
+    return null;
   }
 };

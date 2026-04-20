@@ -137,44 +137,82 @@ const VistaDetalleCronograma = () => {
     s.Nombre?.toLowerCase().includes(filtroNombre.toLowerCase())
   );
 
-  return (
+ return (
     <div className="min-vh-100 bg-light pb-5">
-      {/* Header Fijo */}
-      <div className="bg-white border-bottom p-3 d-flex align-items-center sticky-top shadow-sm">
-        <button className="btn btn-light rounded-circle me-3" onClick={() => navigate(-1)}>
-          <i className="bi bi-arrow-left"></i>
-        </button>
-        <div>
-          <h6 className="fw-bold mb-0 text-uppercase">{servicio?.Tipo}</h6>
-          <small className="text-muted">{servicio?.Fecha}</small>
+      {/* HEADER PREMIUM DARK */}
+      <div className="bg-dark text-white p-4 pb-5 rounded-bottom-5 shadow-lg">
+        <div className="d-flex align-items-center gap-3 mb-4">
+          <button className="btn btn-outline-light rounded-circle border-0" onClick={() => navigate(-1)}>
+            <i className="bi bi-arrow-left fs-4"></i>
+          </button>
+          <span className="fw-bold tracking-tight text-uppercase small" style={{ letterSpacing: '1px' }}>
+            Gestión de Equipo
+          </span>
+        </div>
+        
+        <div className="d-flex align-items-center justify-content-between">
+          <div>
+            <h2 className="fw-bold mb-0 text-capitalize">{servicio?.Tipo}</h2>
+            <div className="d-flex align-items-center gap-2 opacity-75 small">
+              <i className="bi bi-calendar3"></i>
+              <span>{servicio?.Fecha}</span>
+              <span className="mx-1">•</span>
+              <i className="bi bi-clock"></i>
+              <span>{servicio?.Jornada}</span>
+            </div>
+          </div>
+          <div className="bg-primary p-3 rounded-4 shadow-sm">
+            <i className="bi bi-people-fill fs-3 text-white"></i>
+          </div>
         </div>
       </div>
 
-      <span className="text-secondary text-center d-block">
-        <i className="bi bi-info-circle-fill me-2 text-primary"></i>
-        <br />
-        Aquí están las áreas del servicio que seleccionó y sus servidores
-      </span>
+      {/* SUBTÍTULO INFORMATIVO */}
+      <div className="container" style={{ marginTop: '-20px' }}>
+        <div className="card border-0 shadow-sm rounded-pill py-2 px-4 mb-4 bg-white text-center">
+          <small className="text-muted fw-medium">
+            <i className="bi bi-info-circle-fill me-2 text-primary"></i>
+            Asigna servidores a cada área para completar el cronograma.
+          </small>
+        </div>
 
-      <div className="container py-4">
+        {/* CONTENEDOR DE EQUIPO */}
         {cargando && !mostrarModal ? (
-          <div className="text-center py-5"><div className="spinner-border text-primary"></div></div>
+          <div className="text-center py-5">
+            <div className="spinner-border text-primary"></div>
+            <p className="mt-3 text-muted">Cargando servidores...</p>
+          </div>
         ) : (
           <div className="row g-3">
             {equipo.map((puesto) => (
-              <div key={puesto.servicio_area_id} className="col-12 col-md-6 col-lg-4">
-                <div className="card border-0 shadow-sm rounded-4 h-100">
+              <div key={puesto.servicio_area_id} className="col-12">
+                <div className={`card border-0 shadow-sm rounded-4 overflow-hidden ${!puesto.esta_asignado ? 'border-start border-warning border-4' : ''}`}>
                   <div className="card-body d-flex align-items-center p-3">
-                    <img 
-                      src={puesto.servidor_foto || `https://ui-avatars.com/api/?name=${puesto.area_nombre}&background=random`} 
-                      className="rounded-circle border me-3" width="50" height="50" style={{objectFit: 'cover'}} 
-                    />
-                    <div className="flex-grow-1 overflow-hidden">
-                      <small className="text-muted fw-bold d-block text-uppercase" style={{fontSize: '9px'}}>{puesto.area_nombre}</small>
-                      <h6 className="mb-0 fw-bold text-truncate">{puesto.esta_asignado ? puesto.servidor_nombre : "Puesto Vacante"}</h6>
+                    {/* AVATAR CON ESTADO */}
+                    <div className="position-relative">
+                      <img 
+                        src={puesto.servidor_foto || `https://ui-avatars.com/api/?name=${puesto.area_nombre}&background=random`} 
+                        className="rounded-circle border border-2 shadow-sm" 
+                        width="55" height="55" style={{objectFit: 'cover'}} 
+                      />
+                      <span className={`position-absolute bottom-0 end-0 p-1 border border-light rounded-circle ${puesto.esta_asignado ? 'bg-success' : 'bg-warning'}`}></span>
                     </div>
+
+                    <div className="flex-grow-1 overflow-hidden ms-3">
+                      <small className="text-primary fw-bold d-block text-uppercase" style={{fontSize: '10px', letterSpacing: '0.5px'}}>
+                        {puesto.area_nombre}
+                      </small>
+                      <h6 className={`mb-0 fw-bold text-truncate ${!puesto.esta_asignado ? 'text-muted fst-italic' : 'text-dark'}`}>
+                        {puesto.esta_asignado ? puesto.servidor_nombre : "Puesto Vacante"}
+                      </h6>
+                    </div>
+
                     <button 
-                      className={`btn btn-sm rounded-pill px-3 fw-bold ${puesto.esta_asignado ? "btn-light border text-muted" : "btn-primary"}`} 
+                      className={`btn rounded-pill px-4 fw-bold shadow-sm transition-all ${
+                        puesto.esta_asignado 
+                          ? "btn-light border text-muted btn-sm" 
+                          : "btn-primary btn-sm"
+                      }`} 
                       onClick={() => abrirModal(puesto)}
                     >
                       {puesto.esta_asignado ? "Cambiar" : "Asignar"}
@@ -187,44 +225,57 @@ const VistaDetalleCronograma = () => {
         )}
       </div>
 
-      {/* Modal Directorio */}
+      {/* MODAL DIRECTORIO (DISEÑO GLASSMORPHISM) */}
       {mostrarModal && (
-        <div className="modal fade show d-block" style={{ background: "rgba(0,0,0,0.85)", backdropFilter: "blur(4px)" }}>
+        <div className="modal fade show d-block" style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(8px)" }}>
           <div className="modal-dialog modal-dialog-centered mx-3">
-            <div className="modal-content rounded-5 border-0 shadow-lg">
-              <div className="modal-header border-0 p-4 pb-0">
-                <h6 className="fw-bold mb-0">Directorio de Servidores</h6>
-                <button className="btn-close shadow-none" onClick={() => setMostrarModal(false)}></button>
+            <div className="modal-content rounded-5 border-0 shadow-2xl overflow-hidden">
+              <div className="bg-dark p-4 text-white border-0 d-flex justify-content-between align-items-center">
+                <div>
+                  <h6 className="fw-bold mb-0">Seleccionar Servidor</h6>
+                  <small className="opacity-75">Buscando para: {puestoSeleccionado?.area_nombre}</small>
+                </div>
+                <button className="btn-close btn-close-white shadow-none" onClick={() => setMostrarModal(false)}></button>
               </div>
-              <div className="modal-body p-4 pt-3">
-                <div className="input-group input-group-sm mb-3 bg-light rounded-pill px-3 py-2 border">
-                  <span className="input-group-text bg-transparent border-0"><i className="bi bi-search"></i></span>
+
+              <div className="modal-body p-4 pt-4 bg-white">
+                {/* BUSCADOR ESTILO MODERNO */}
+                <div className="input-group bg-light rounded-4 px-3 py-1 border mb-4 focus-within-primary">
+                  <span className="input-group-text bg-transparent border-0 text-muted"><i className="bi bi-search"></i></span>
                   <input 
-                    type="text" className="form-control bg-transparent border-0 shadow-none" 
-                    placeholder="Buscar por nombre..." 
+                    type="text" className="form-control bg-transparent border-0 shadow-none py-2" 
+                    placeholder="Escribe un nombre..." 
                     value={filtroNombre} onChange={(e) => setFiltroNombre(e.target.value)}
                   />
                 </div>
 
-                <div className="list-group list-group-flush" style={{maxHeight: '350px', overflowY: 'auto'}}>
+                <div className="list-group list-group-flush custom-scroll" style={{maxHeight: '380px', overflowY: 'auto'}}>
                   {buscando ? (
-                    <div className="text-center py-4"><div className="spinner-border spinner-border-sm text-primary"></div></div>
+                    <div className="text-center py-5"><div className="spinner-border text-primary"></div></div>
                   ) : servidoresFiltrados.length > 0 ? (
                     servidoresFiltrados.map(s => (
-                      <button key={s.Id} className="list-group-item list-group-item-action d-flex align-items-center border-0 mb-2 rounded-4 bg-light py-3"
-                              onClick={() => ejecutarAsignacion(s)}>
-                        <img src={s.Foto || `https://ui-avatars.com/api/?name=${s.Nombre}`} className="rounded-circle me-3 border shadow-sm" width="40" height="40" />
+                      <button 
+                        key={s.Id} 
+                        className="list-group-item list-group-item-action d-flex align-items-center border-0 mb-2 rounded-4 bg-light py-3 animate-fade-in"
+                        onClick={() => ejecutarAsignacion(s)}
+                      >
+                        <img src={s.Foto || `https://ui-avatars.com/api/?name=${s.Nombre}`} className="rounded-circle me-3 border shadow-sm" width="45" height="45" />
                         <div className="text-start flex-grow-1">
-                          <h6 className="mb-0 fw-bold small text-dark">{s.Nombre}</h6>
-                          <small className="text-primary fw-medium" style={{fontSize: '10px'}}>
-                            {s.Rol || "Servidor"}
+                          <h6 className="mb-0 fw-bold text-dark">{s.Nombre}</h6>
+                          <small className="text-primary fw-medium" style={{fontSize: '11px'}}>
+                            {s.Rol || "Servidor Activo"}
                           </small>
                         </div>
-                        <i className="bi bi-person-plus-fill text-primary fs-5"></i>
+                        <div className="bg-white rounded-circle p-2 shadow-sm text-primary">
+                          <i className="bi bi-plus-lg"></i>
+                        </div>
                       </button>
                     ))
                   ) : (
-                    <div className="text-center py-4 text-muted">No se encontraron resultados.</div>
+                    <div className="text-center py-5 opacity-50">
+                      <i className="bi bi-emoji-frown fs-1"></i>
+                      <p className="mt-2">No encontramos a ese servidor.</p>
+                    </div>
                   )}
                 </div>
               </div>
@@ -232,8 +283,18 @@ const VistaDetalleCronograma = () => {
           </div>
         </div>
       )}
+
+      {/* CSS ADICIONAL */}
+      <style>{`
+        .rounded-bottom-5 { border-bottom-left-radius: 45px; border-bottom-right-radius: 45px; }
+        .shadow-2xl { box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); }
+        .custom-scroll::-webkit-scrollbar { width: 4px; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #dee2e6; border-radius: 10px; }
+        .animate-fade-in { animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .focus-within-primary:focus-within { border-color: #0d6efd !important; box-shadow: 0 0 0 0.25rem rgba(13,110,253,.1); }
+      `}</style>
     </div>
   );
-};
-
+}
 export default VistaDetalleCronograma;
