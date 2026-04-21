@@ -5,7 +5,7 @@ import Swal from 'sweetalert2';
 const GeneradorInforme = ({ servicios, datosFlyer, fecha }) => {
   const downloadRef = useRef(null);
 
-  // Configuración de la Paleta Deep Ocean
+  // Paleta Deep Ocean & Glass
   const colors = {
     navy: '#2c3e50',
     sky: '#3498db',
@@ -14,27 +14,55 @@ const GeneradorInforme = ({ servicios, datosFlyer, fecha }) => {
     accent: '#2980b9'
   };
 
-  const generarImagen = () => {
+  const manejarCompartir = async () => {
     if (servicios.length === 0) return;
 
     Swal.fire({
-      title: 'Diseñando Cronograma',
-      text: 'Aplicando estilo Deep Ocean...',
+      title: 'Generando Cronograma',
+      text: 'Preparando diseño para WhatsApp...',
       allowOutsideClick: false,
       didOpen: () => { Swal.showLoading(); }
     });
 
-    setTimeout(() => {
-      toPng(downloadRef.current, { cacheBust: true, backgroundColor: '#f0f2f5' })
-        .then((dataUrl) => {
-          const link = document.createElement('a');
-          link.download = `Cronograma_Ocean_${fecha}.png`;
-          link.href = dataUrl;
-          link.click();
-          Swal.close();
-        })
-        .catch(() => Swal.fire('Error', 'No se pudo generar la imagen', 'error'));
-    }, 1000);
+    try {
+      // 1. Convertir HTML a Imagen (DataURL)
+      const dataUrl = await toPng(downloadRef.current, { 
+        cacheBust: true, 
+        backgroundColor: '#f4f7f9',
+        pixelRatio: 2 // Mayor calidad
+      });
+      
+      // 2. Convertir DataURL a un archivo real para compartir
+      const response = await fetch(dataUrl);
+      const blob = await response.blob();
+      const file = new File([blob], `Cronograma_${fecha}.png`, { type: 'image/png' });
+
+      Swal.close();
+
+      // 3. Intentar compartir nativamente (WhatsApp/Otros)
+      if (navigator.share && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: 'Cronograma Producción',
+          text: 'Hola! Aquí envío el cronograma de audiovisuales para este domingo.'
+        });
+      } else {
+        // Fallback: Descarga normal si es PC o navegador antiguo
+        const link = document.createElement('a');
+        link.download = `Cronograma_${fecha}.png`;
+        link.href = dataUrl;
+        link.click();
+        Swal.fire({
+          icon: 'info',
+          title: 'Imagen Descargada',
+          text: 'Tu dispositivo no permite compartir directo, pero la imagen ya está en tus descargas para que la envíes manualmente.',
+          confirmButtonColor: colors.navy
+        });
+      }
+    } catch (err) {
+      console.error(err);
+      Swal.fire('Error', 'Hubo un problema al crear la imagen.', 'error');
+    }
   };
 
   const getMesAnio = () => {
@@ -45,108 +73,70 @@ const GeneradorInforme = ({ servicios, datosFlyer, fecha }) => {
   return (
     <>
       <button 
-        onClick={generarImagen}
+        onClick={manejarCompartir}
         className="btn w-100 rounded-4 py-3 shadow-lg fw-bold d-flex align-items-center justify-content-center gap-2 border-0"
         style={{ background: `linear-gradient(135deg, ${colors.navy}, ${colors.accent})`, color: 'white' }}
       >
-        <i className="bi bi-cloud-arrow-down-fill fs-5"></i>
-        Descargar Cronograma Del Servcio De Hoy
+        <i className="bi bi-whatsapp fs-5 text-success"></i>
+        ENVIAR CRONOGRAMA POR WHATSAPP
       </button>
 
-      {/* --- DISEÑO DE LA IMAGEN --- */}
+      {/* --- DISEÑO OCULTO PARA LA FOTO (Deep Ocean Style) --- */}
       <div style={{ position: 'absolute', left: '-9999px', top: '0' }}>
-        <div ref={downloadRef} style={{ 
-          width: '1150px', 
-          padding: '60px', 
-          background: '#f4f7f9', 
-          fontFamily: 'Segoe UI, Roboto, Helvetica, Arial, sans-serif' 
-        }}>
+        <div ref={downloadRef} style={{ width: '1150px', padding: '60px', background: '#f4f7f9', fontFamily: 'sans-serif' }}>
           
-          {/* Header con estilo Glass */}
           <div style={{ 
-            background: colors.navy, 
-            padding: '40px', 
-            borderRadius: '25px', 
-            marginBottom: '40px',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            color: 'white',
-            boxShadow: '0 15px 35px rgba(44, 62, 80, 0.2)'
+            background: colors.navy, padding: '40px', borderRadius: '25px', marginBottom: '40px',
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: 'white',
+            boxShadow: '0 15px 35px rgba(0,0,0,0.1)'
           }}>
             <div>
-              <h1 style={{ margin: 0, fontSize: '38px', fontWeight: '800', letterSpacing: '-1px' }}>EQUIPO PRODUCCIÓN</h1>
-              <p style={{ margin: 0, fontSize: '18px', opacity: 0.8, textTransform: 'uppercase' }}>{getMesAnio()}</p>
+              <h1 style={{ margin: 0, fontSize: '38px', fontWeight: '800' }}>EQUIPO PRODUCCIÓN</h1>
+              <p style={{ margin: 0, fontSize: '18px', opacity: 0.8 }}>{getMesAnio()}</p>
             </div>
             <div style={{ textAlign: 'right' }}>
               <div style={{ fontSize: '14px', opacity: 0.7 }}>DOMINGO</div>
               <div style={{ fontSize: '32px', fontWeight: 'bold' }}>
-                {servicios[0] ? new Date(servicios[0].Fecha + "T00:00:00").getDate() : '--'}
+                {servicios[0] ? new Date(servicios[0].Fecha + "T00:00:00").getDate() : ''}
               </div>
             </div>
           </div>
 
           <div style={{ display: 'flex', gap: '25px' }}>
-            {/* Columna de Roles (Etiquetas) */}
+            {/* Roles */}
             <div style={{ width: '260px', marginTop: '85px' }}>
               {datosFlyer.areas.map(area => (
                 <div key={area.Id} style={{ 
-                  height: '65px', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  marginBottom: '15px',
-                  color: colors.text,
-                  fontWeight: '700',
-                  fontSize: '14px',
-                  textTransform: 'uppercase',
-                  paddingLeft: '10px',
-                  borderLeft: `4px solid ${colors.sky}`
+                  height: '65px', display: 'flex', alignItems: 'center', marginBottom: '15px',
+                  color: colors.text, fontWeight: '700', fontSize: '14px', textTransform: 'uppercase',
+                  borderLeft: `4px solid ${colors.sky}`, paddingLeft: '15px'
                 }}>
                   {area.Nombre}
                 </div>
               ))}
             </div>
 
-            {/* Columnas de Servicios (Glass Cards) */}
+            {/* Tarjetas Glass */}
             <div style={{ display: 'flex', gap: '25px', flex: 1 }}>
               {servicios.map((s) => (
                 <div key={s.Id} style={{ 
-                  flex: 1, 
-                  background: colors.glass, 
-                  borderRadius: '30px', 
-                  boxShadow: '0 10px 30px rgba(0,0,0,0.03)',
-                  border: '1px solid white',
-                  overflow: 'hidden'
+                  flex: 1, background: colors.glass, borderRadius: '30px', 
+                  border: '1px solid white', overflow: 'hidden', boxShadow: '0 5px 15px rgba(0,0,0,0.05)'
                 }}>
-                  <div style={{ 
-                    background: `linear-gradient(to bottom, ${colors.sky}, ${colors.accent})`, 
-                    padding: '20px', 
-                    textAlign: 'center', 
-                    color: 'white' 
-                  }}>
-                    <div style={{ fontSize: '11px', fontWeight: 'bold', opacity: 0.9 }}>{s.Jornada}</div>
+                  <div style={{ background: colors.sky, padding: '20px', textAlign: 'center', color: 'white' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 'bold' }}>{s.Jornada}</div>
                     <div style={{ fontSize: '20px', fontWeight: 'bold' }}>{s.Tipo}</div>
                   </div>
-
-                  <div style={{ padding: '0 15px' }}>
+                  <div style={{ padding: '0 10px' }}>
                     {datosFlyer.areas.map(area => {
                       const nombre = datosFlyer.asignaciones[area.Id]?.[s.Id] || '';
                       return (
                         <div key={area.Id} style={{ 
-                          height: '65px', 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          justifyContent: 'center', 
-                          borderBottom: '1px solid #f0f3f5',
-                          textAlign: 'center'
+                          height: '65px', display: 'flex', alignItems: 'center', justifyContent: 'center', 
+                          borderBottom: '1px solid #eee', textAlign: 'center'
                         }}>
-                          <span style={{ 
-                            fontSize: '15px', 
-                            fontWeight: nombre ? '600' : '400', 
-                            color: nombre ? colors.navy : '#cbd5e0',
-                            textTransform: 'uppercase'
-                          }}>
-                            {nombre || 'VACANTE'}
+                          <span style={{ fontSize: '15px', fontWeight: nombre ? '600' : '400', color: nombre ? colors.navy : '#ccc' }}>
+                            {nombre || '-'}
                           </span>
                         </div>
                       );
@@ -155,10 +145,6 @@ const GeneradorInforme = ({ servicios, datosFlyer, fecha }) => {
                 </div>
               ))}
             </div>
-          </div>
-
-          <div style={{ marginTop: '40px', textAlign: 'center', color: '#a0aec0', fontSize: '13px', fontWeight: '500' }}>
-            ORGANIZACIÓN ESTRATÉGICA DE SERVIDORES • {new Date().getFullYear()}
           </div>
         </div>
       </div>
