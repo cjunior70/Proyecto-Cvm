@@ -38,7 +38,7 @@ export default function Servicios() {
     let fechaFinBusqueda;
 
     // 2. Lógica condicional: Si es 28 o más, extendemos el rango hasta el fin del PRÓXIMO mes
-    if (diaDelMes >= 27) {
+    if (diaDelMes >= 25) {
       // Fin del próximo mes
       fechaFinBusqueda = new Date(hoy.getFullYear(), hoy.getMonth() + 2, 0);
     } else {

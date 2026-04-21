@@ -22,7 +22,7 @@ export default function Disponibilidad() {
       
       // Si es 27 o más, vemos hasta el fin del PRÓXIMO mes
       let fechaFinBusqueda;
-      if (diaDelMes >= 27) {
+      if (diaDelMes >= 15) {
         fechaFinBusqueda = new Date(hoy.getFullYear(), hoy.getMonth() + 2, 0).toISOString().split('T')[0];
       } else {
         fechaFinBusqueda = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).toISOString().split('T')[0];

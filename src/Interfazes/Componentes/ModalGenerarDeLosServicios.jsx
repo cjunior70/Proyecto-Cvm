@@ -36,7 +36,6 @@ export default function ModalGenerarDeLosServicios({ visible, onClose, onConfirm
       // (Pasamos los datos hacia arriba por si el padre necesita refrescar algo)
       await onConfirm({ mesObjetivo, anioObjetivo });
 
-      alert("¡Éxito! Servicios generados y fechas de acceso configuradas.");
       onClose();
     } catch (error) {
       console.error("Error en la inyección:", error);
