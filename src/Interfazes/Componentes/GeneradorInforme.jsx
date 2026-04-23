@@ -5,7 +5,7 @@ import Swal from 'sweetalert2';
 const GeneradorInforme = ({ servicios, datosFlyer, fecha }) => {
   const downloadRef = useRef(null);
 
-  // 1. PRIORIDAD DE ÁREAS (Match con tu JSON)
+ // 1. PRIORIDAD DE ÁREAS (EN MAYÚSCULAS)
   const PRIORIDAD = [
     "COORDINADOR GENERAL",
     "VJ",
@@ -14,8 +14,12 @@ const GeneradorInforme = ({ servicios, datosFlyer, fecha }) => {
     "MOVIL",
     "SWITCHER",
     "VIDEOCAMARA",
+    "TRANSMISION",
+    "ROADIE ( BACKLINE )",
+    "SONIDISTA ( CONSOLA )",
     "FOTOGRAFÍA  - EDICIÓN DE FOTO",
     "HISTORIA",
+    "STAFF - AUXILIAR GENERAL  - INVENTARIO",
     "ASEO"
   ];
 
