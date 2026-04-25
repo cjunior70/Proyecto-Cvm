@@ -180,11 +180,21 @@ const GeneradorInforme = ({ servicios = [], datosFlyer = { areas: [], asignacion
                   {serviciosOrdenados.map((s) => {
                     const nombre = datosFlyer.asignaciones?.[area.Id]?.[s.Id] || '';
                     return (
-                      <div key={s.Id} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '15px' }}>
-                        <span style={{ fontSize: '26px', fontWeight: '900', color: colors.navy, textAlign: 'center', fontFamily: "'Archivo Black', sans-serif" }}>
-                          {nombre || '---'}
-                        </span>
-                      </div>
+                     <div key={s.Id} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '15px' }}>
+                      <span style={{ 
+                        // Si NO hay nombre, aplicamos color gris e inclinación (italiano/italic)
+                        // Si SÍ hay nombre, usamos el color navy y normal
+                        color: nombre ? colors.navy : '#cbd5e1', 
+                        fontStyle: nombre ? 'normal' : 'italic',
+                        fontSize: nombre ? '26px' : '12px', // Un poco más pequeño si no es requerido
+                        fontWeight: '900', 
+                        textAlign: 'center', 
+                        fontFamily: "'Archivo Black', sans-serif",
+                        textTransform: 'uppercase'
+                      }}>
+                        {nombre || 'ÁREA NO REQUERIDA'}
+                      </span>
+                    </div>
                     );
                   })}
                 </div>
