@@ -2,11 +2,19 @@ import React, { useRef } from 'react';
 import { toPng } from 'html-to-image';
 import Swal from 'sweetalert2';
 
-const GeneradorInforme = ({ servicios, datosFlyer, fecha }) => {
+const GeneradorInforme = ({ servicios = [], datosFlyer = { areas: [], asignaciones: {} }, fecha }) => {
   const downloadRef = useRef(null);
 
-  // 1. CONFIGURACIÓN DE COLORES Y PRIORIDADES
-  const PRIORIDAD = [
+  // --- 1. CONFIGURACIÓN DE COLORES (Ahora interna para que no falle) ---
+  const colors = {
+    navy: '#1a2a3a',
+    sky: '#3498db',
+    text: '#0f172a',
+    accent: '#2980b9',
+    muted: '#94a3b8'
+  };
+
+  const PRIORIDAD_AREAS = [
     "COORDINADOR GENERAL",
     "VJ",
     "LETRA",
@@ -19,42 +27,52 @@ const GeneradorInforme = ({ servicios, datosFlyer, fecha }) => {
     "ASEO"
   ];
 
-  const colors = {
-    navy: '#1a2a3a',
-    sky: '#3498db',
-    text: '#0f172a',
-    accent: '#2980b9',
-    muted: '#94a3b8'
-  };
+  // --- 2. LÓGICA DE ORDENAMIENTO DE SERVICIOS ---
+  // Usamos ?. y || [] para evitar errores si servicios llega nulo
+  const serviciosOrdenados = [...(servicios || [])].sort((a, b) => {
+    const obtenerPeso = (jornada) => {
+      const j = (jornada || "").toUpperCase();
+      if (j.includes('7:00 AM')) return 1;
+      if (j.includes('9:00 AM')) return 2;
+      if (j.includes('11:00 AM')) return 3;
+      if (j.includes('6:00 PM')) return 4;
+      if (j.includes('7:30 PM')) return 5;
+      return 10; 
+    };
+    return obtenerPeso(a.Jornada) - obtenerPeso(b.Jornada);
+  });
 
-  // 2. LÓGICA DE ORDENAMIENTO
-  const areasOrdenadas = [...datosFlyer.areas].sort((a, b) => {
+  // --- 3. LÓGICA DE ORDENAMIENTO DE ÁREAS ---
+  const areasOrdenadas = [...(datosFlyer?.areas || [])].sort((a, b) => {
     const nombreA = (a.Nombre || "").toUpperCase().trim();
     const nombreB = (b.Nombre || "").toUpperCase().trim();
-    let indexA = PRIORIDAD.indexOf(nombreA);
-    let indexB = PRIORIDAD.indexOf(nombreB);
+    let indexA = PRIORIDAD_AREAS.indexOf(nombreA);
+    let indexB = PRIORIDAD_AREAS.indexOf(nombreB);
     if (indexA === -1) indexA = nombreA.includes("ASEO") ? 100 : 90;
     if (indexB === -1) indexB = nombreB.includes("ASEO") ? 100 : 90;
     return indexA - indexB;
   });
 
   const getMesAnio = () => {
-    if (!servicios[0]) return "";
-    return new Date(servicios[0].Fecha + "T00:00:00").toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }).toUpperCase();
+    if (!serviciosOrdenados[0]?.Fecha) return "";
+    try {
+      return new Date(serviciosOrdenados[0].Fecha + "T00:00:00").toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }).toUpperCase();
+    } catch (e) { return ""; }
   };
 
-  // 3. FUNCIÓN PARA COMPARTIR (CON EL MENSAJE BACANO)
   const manejarCompartir = async () => {
-    if (!servicios || servicios.length === 0) return;
+    if (!serviciosOrdenados.length) {
+        Swal.fire('Atención', 'No hay servicios para generar el informe', 'warning');
+        return;
+    }
 
     Swal.fire({ 
-      title: 'Generando Flyer...', 
+      title: 'Generando Informe...', 
       allowOutsideClick: false, 
       didOpen: () => Swal.showLoading() 
     });
 
     try {
-      // Generar la imagen desde el DOM
       const dataUrl = await toPng(downloadRef.current, { 
         cacheBust: true, 
         backgroundColor: '#f8fafc',
@@ -67,31 +85,20 @@ const GeneradorInforme = ({ servicios, datosFlyer, fecha }) => {
       
       Swal.close();
 
-      // --- EL MENSAJE PARA EL PIE DE FOTO ---
       const mensajeBacano = 
         `🚀 *EQUIPO DE PRODUCCIÓN* 🚀\n\n` +
         `¡Hola equipo! 👋 Bienvenido a nuestro cronograma para el próximo servicio del día *${fecha}*.\n\n` +
-        `⚠️ *RECORDATORIO:* Por favor, recuerden llegar *media hora antes* del evento para el setup inicial y oración. Su puntualidad es clave para la excelencia.\n\n` +
+        `⚠️ *RECORDATORIO:* Por favor, recuerden llegar *media hora antes* del evento para el setup inicial y oración.\n\n` +
         `¡Vamos con toda la actitud! 🙌🔥`;
 
       if (navigator.share && navigator.canShare({ files: [file] })) {
-        await navigator.share({
-          files: [file],
-          title: 'Cronograma Producción',
-          text: mensajeBacano 
-        });
+        await navigator.share({ files: [file], title: 'Cronograma', text: mensajeBacano });
       } else {
-        // Fallback si no puede compartir (PC o Navegador no compatible)
         const link = document.createElement('a');
         link.download = `Cronograma_${fecha}.png`;
         link.href = dataUrl;
         link.click();
-        
-        Swal.fire({
-          title: 'Imagen Descargada',
-          text: 'Tu navegador no permite compartir directamente. La imagen se ha descargado; súbela a WhatsApp y recuerda pedir puntualidad al equipo.',
-          icon: 'info'
-        });
+        Swal.fire('Imagen Descargada', 'Súbela manualmente a WhatsApp.', 'info');
       }
     } catch (err) {
       console.error(err);
@@ -99,13 +106,17 @@ const GeneradorInforme = ({ servicios, datosFlyer, fecha }) => {
     }
   };
 
+  // Si no hay datos, mostramos un aviso pequeño en lugar de romper la app
+  if (!servicios || servicios.length === 0) {
+      return <div className="alert alert-info">Esperando datos del cronograma...</div>;
+  }
+
   return (
     <>
       <style>
         {`@import url('https://fonts.googleapis.com/css2?family=Archivo+Black&family=Inter:wght@400;700;900&display=swap');`}
       </style>
 
-      {/* BOTÓN VISIBLE */}
       <button 
         onClick={manejarCompartir}
         className="btn w-100 rounded-4 py-3 shadow-lg fw-bold d-flex align-items-center justify-content-center gap-2 border-0"
@@ -119,111 +130,66 @@ const GeneradorInforme = ({ servicios, datosFlyer, fecha }) => {
         ENVIAR CRONOGRAMA POR WHATSAPP
       </button>
 
-      {/* --- DISEÑO DEL FLYER (OCULTO EN LA UI, PERO EXISTE EN EL DOM) --- */}
+      {/* FLYER OCULTO */}
       <div style={{ position: 'absolute', left: '-9999px', top: '0', zIndex: -1 }}>
-        <div ref={downloadRef} style={{ 
-            width: '1300px', 
-            padding: '60px', 
-            background: '#f8fafc', 
-            fontFamily: "'Inter', sans-serif" 
-        }}>
+        <div ref={downloadRef} style={{ width: '1300px', padding: '60px', background: '#f8fafc', fontFamily: "'Inter', sans-serif" }}>
           
-          {/* HEADER DEL FLYER */}
           <div style={{ 
             background: colors.navy, padding: '50px', borderRadius: '35px', marginBottom: '50px',
-            display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: 'white',
-            boxShadow: '0 20px 40px rgba(0,0,0,0.2)'
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: 'white'
           }}>
             <div>
-              <h1 style={{ 
-                margin: 0, fontSize: '52px', fontWeight: '900', 
-                fontFamily: "'Archivo Black', sans-serif", letterSpacing: '-2px'
-              }}>EQUIPO PRODUCCIÓN</h1>
-              <p style={{ margin: '10px 0 0 0', fontSize: '24px', opacity: 0.8, fontWeight: '700' }}>{getMesAnio()}</p>
+              <h1 style={{ margin: 0, fontSize: '52px', fontWeight: '900', fontFamily: "'Archivo Black', sans-serif" }}>EQUIPO PRODUCCIÓN</h1>
+              <p style={{ margin: '10px 0 0 0', fontSize: '24px', opacity: 0.8 }}>{getMesAnio()}</p>
             </div>
             <div style={{ textAlign: 'right' }}>
-              <div style={{ 
-                fontSize: '20px', fontWeight: '900', color: '#3498db', 
-                textTransform: 'uppercase', letterSpacing: '5px' 
-              }}>
-                {servicios[0] ? new Date(servicios[0].Fecha + "T00:00:00").toLocaleDateString('es-ES', { weekday: 'long' }) : ''}
+              <div style={{ fontSize: '20px', fontWeight: '900', color: '#3498db', letterSpacing: '5px' }}>
+                {serviciosOrdenados[0] ? new Date(serviciosOrdenados[0].Fecha + "T00:00:00").toLocaleDateString('es-ES', { weekday: 'long' }).toUpperCase() : ''}
               </div>
               <div style={{ fontSize: '60px', fontWeight: '900', fontFamily: "'Archivo Black', sans-serif" }}>
-                {servicios[0] ? new Date(servicios[0].Fecha + "T00:00:00").getDate() : ''}
+                {serviciosOrdenados[0] ? new Date(serviciosOrdenados[0].Fecha + "T00:00:00").getDate() : ''}
               </div>
             </div>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column' }}>
-            {/* CABECERAS DE JORNADA */}
             <div style={{ display: 'flex', marginBottom: '20px' }}>
               <div style={{ width: '380px' }}></div>
               <div style={{ display: 'flex', flex: 1, gap: '15px' }}>
-                {servicios.map((s) => (
-                  <div key={s.Id} style={{ 
-                    flex: 1, background: colors.sky, padding: '25px', 
-                    borderRadius: '25px 25px 0 0', color: 'white', textAlign: 'center'
-                  }}>
-                    <div style={{ fontSize: '14px', fontWeight: '900', textTransform: 'uppercase' }}>{s.Jornada}</div>
+                {serviciosOrdenados.map((s) => (
+                  <div key={s.Id} style={{ flex: 1, background: colors.sky, padding: '25px', borderRadius: '25px 25px 0 0', color: 'white', textAlign: 'center' }}>
+                    <div style={{ fontSize: '14px', fontWeight: '900' }}>{s.Jornada}</div>
                     <div style={{ fontSize: '28px', fontWeight: '900', fontFamily: "'Archivo Black', sans-serif" }}>{s.Tipo}</div>
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* CUERPO DEL CRONOGRAMA */}
             {areasOrdenadas.map((area, index) => (
               <div key={area.Id} style={{ 
-                display: 'flex', flexWrap: 'nowrap', alignItems: 'stretch',
-                background: index % 2 === 0 ? 'rgba(0,0,0,0.04)' : 'white',
-                borderBottom: '2px solid #e2e8f0',
-                marginBottom: '5px',
-                borderRadius: '15px'
+                display: 'flex', alignItems: 'stretch', background: index % 2 === 0 ? 'rgba(0,0,0,0.04)' : 'white',
+                borderBottom: '2px solid #e2e8f0', marginBottom: '5px', borderRadius: '15px'
               }}>
-                {/* NOMBRE DEL ÁREA */}
                 <div style={{ 
-                  width: '380px', minWidth: '380px', minHeight: '90px', display: 'flex', alignItems: 'center',
-                  color: colors.text, fontWeight: '900', fontSize: '18px', textTransform: 'uppercase',
-                  borderLeft: `12px solid ${colors.sky}`, paddingLeft: '25px',
+                  width: '380px', minHeight: '90px', display: 'flex', alignItems: 'center',
+                  color: colors.text, fontWeight: '900', fontSize: '18px', borderLeft: `12px solid ${colors.sky}`, paddingLeft: '25px'
                 }}>
                   {area.Nombre}
                 </div>
-
-                {/* ASIGNACIONES */}
-                <div style={{ display: 'flex', flexWrap: 'nowrap', flex: 1, gap: '15px' }}>
-                  {servicios.map((s) => {
-                    const nombre = datosFlyer.asignaciones[area.Id]?.[s.Id] || '';
+                <div style={{ display: 'flex', flex: 1, gap: '15px' }}>
+                  {serviciosOrdenados.map((s) => {
+                    const nombre = datosFlyer.asignaciones?.[area.Id]?.[s.Id] || '';
                     return (
-                      <div key={s.Id} style={{ 
-                        flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', 
-                        justifyContent: 'center', padding: '15px', textAlign: 'center'
-                      }}>
-                        {nombre ? (
-                          <span style={{ 
-                              fontSize: '26px', fontWeight: '900', color: colors.navy, 
-                              textTransform: 'uppercase', fontFamily: "'Archivo Black', sans-serif"
-                          }}>
-                            {nombre}
-                          </span>
-                        ) : (
-                          <span style={{ 
-                              fontSize: '14px', fontWeight: '700', color: colors.muted, 
-                              fontStyle: 'italic', textTransform: 'uppercase', lineHeight: '1.2'
-                          }}>
-                            Área no<br/>requerida
-                          </span>
-                        )}
+                      <div key={s.Id} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '15px' }}>
+                        <span style={{ fontSize: '26px', fontWeight: '900', color: colors.navy, textAlign: 'center', fontFamily: "'Archivo Black', sans-serif" }}>
+                          {nombre || '---'}
+                        </span>
                       </div>
                     );
                   })}
                 </div>
               </div>
             ))}
-          </div>
-          
-          {/* PIE DE PÁGINA DEL FLYER */}
-          <div style={{ marginTop: '30px', textAlign: 'center', color: colors.muted, fontWeight: '700', fontSize: '14px' }}>
-            DEPARTAMENTO DE PRODUCCIÓN • FLYER OFICIAL {new Date().getFullYear()}
           </div>
         </div>
       </div>
