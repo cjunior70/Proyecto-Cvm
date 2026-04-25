@@ -5,7 +5,7 @@ import Swal from 'sweetalert2';
 const GeneradorInforme = ({ servicios, datosFlyer, fecha }) => {
   const downloadRef = useRef(null);
 
-  // 1. PRIORIDAD DE ÁREAS (Match con tu JSON)
+  // 1. CONFIGURACIÓN DE COLORES Y PRIORIDADES
   const PRIORIDAD = [
     "COORDINADOR GENERAL",
     "VJ",
@@ -22,11 +22,12 @@ const GeneradorInforme = ({ servicios, datosFlyer, fecha }) => {
   const colors = {
     navy: '#1a2a3a',
     sky: '#3498db',
-    text: '#0f172a', 
+    text: '#0f172a',
     accent: '#2980b9',
-    muted: '#94a3b8' // Color grisáceo para el mensaje de "no requerido"
+    muted: '#94a3b8'
   };
 
+  // 2. LÓGICA DE ORDENAMIENTO
   const areasOrdenadas = [...datosFlyer.areas].sort((a, b) => {
     const nombreA = (a.Nombre || "").toUpperCase().trim();
     const nombreB = (b.Nombre || "").toUpperCase().trim();
@@ -37,11 +38,23 @@ const GeneradorInforme = ({ servicios, datosFlyer, fecha }) => {
     return indexA - indexB;
   });
 
+  const getMesAnio = () => {
+    if (!servicios[0]) return "";
+    return new Date(servicios[0].Fecha + "T00:00:00").toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }).toUpperCase();
+  };
+
+  // 3. FUNCIÓN PARA COMPARTIR (CON EL MENSAJE BACANO)
   const manejarCompartir = async () => {
     if (!servicios || servicios.length === 0) return;
-    Swal.fire({ title: 'Generando Flyer...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+    Swal.fire({ 
+      title: 'Generando Flyer...', 
+      allowOutsideClick: false, 
+      didOpen: () => Swal.showLoading() 
+    });
 
     try {
+      // Generar la imagen desde el DOM
       const dataUrl = await toPng(downloadRef.current, { 
         cacheBust: true, 
         backgroundColor: '#f8fafc',
@@ -51,28 +64,39 @@ const GeneradorInforme = ({ servicios, datosFlyer, fecha }) => {
       const response = await fetch(dataUrl);
       const blob = await response.blob();
       const file = new File([blob], `Cronograma_${fecha}.png`, { type: 'image/png' });
+      
       Swal.close();
+
+      // --- EL MENSAJE PARA EL PIE DE FOTO ---
+      const mensajeBacano = 
+        `🚀 *EQUIPO DE PRODUCCIÓN* 🚀\n\n` +
+        `¡Hola equipo! 👋 Bienvenido a nuestro cronograma para el próximo servicio del día *${fecha}*.\n\n` +
+        `⚠️ *RECORDATORIO:* Por favor, recuerden llegar *media hora antes* del evento para el setup inicial y oración. Su puntualidad es clave para la excelencia.\n\n` +
+        `¡Vamos con toda la actitud! 🙌🔥`;
 
       if (navigator.share && navigator.canShare({ files: [file] })) {
         await navigator.share({
           files: [file],
           title: 'Cronograma Producción',
-          text: `Equipo de Producción - ${fecha}`
+          text: mensajeBacano 
         });
       } else {
+        // Fallback si no puede compartir (PC o Navegador no compatible)
         const link = document.createElement('a');
         link.download = `Cronograma_${fecha}.png`;
         link.href = dataUrl;
         link.click();
+        
+        Swal.fire({
+          title: 'Imagen Descargada',
+          text: 'Tu navegador no permite compartir directamente. La imagen se ha descargado; súbela a WhatsApp y recuerda pedir puntualidad al equipo.',
+          icon: 'info'
+        });
       }
     } catch (err) {
+      console.error(err);
       Swal.fire('Error', 'No se pudo generar la imagen', 'error');
     }
-  };
-
-  const getMesAnio = () => {
-    if (!servicios[0]) return "";
-    return new Date(servicios[0].Fecha + "T00:00:00").toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }).toUpperCase();
   };
 
   return (
@@ -81,6 +105,7 @@ const GeneradorInforme = ({ servicios, datosFlyer, fecha }) => {
         {`@import url('https://fonts.googleapis.com/css2?family=Archivo+Black&family=Inter:wght@400;700;900&display=swap');`}
       </style>
 
+      {/* BOTÓN VISIBLE */}
       <button 
         onClick={manejarCompartir}
         className="btn w-100 rounded-4 py-3 shadow-lg fw-bold d-flex align-items-center justify-content-center gap-2 border-0"
@@ -94,16 +119,16 @@ const GeneradorInforme = ({ servicios, datosFlyer, fecha }) => {
         ENVIAR CRONOGRAMA POR WHATSAPP
       </button>
 
-      {/* --- DISEÑO DE LA IMAGEN --- */}
+      {/* --- DISEÑO DEL FLYER (OCULTO EN LA UI, PERO EXISTE EN EL DOM) --- */}
       <div style={{ position: 'absolute', left: '-9999px', top: '0', zIndex: -1 }}>
         <div ref={downloadRef} style={{ 
-            width: '1300px', // Un poco más ancho para que quepa el mensaje largo
+            width: '1300px', 
             padding: '60px', 
             background: '#f8fafc', 
             fontFamily: "'Inter', sans-serif" 
         }}>
           
-          {/* HEADER */}
+          {/* HEADER DEL FLYER */}
           <div style={{ 
             background: colors.navy, padding: '50px', borderRadius: '35px', marginBottom: '50px',
             display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: 'white',
@@ -117,7 +142,12 @@ const GeneradorInforme = ({ servicios, datosFlyer, fecha }) => {
               <p style={{ margin: '10px 0 0 0', fontSize: '24px', opacity: 0.8, fontWeight: '700' }}>{getMesAnio()}</p>
             </div>
             <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: '20px', fontWeight: '900', color: colors.sky }}>DOMINGO</div>
+              <div style={{ 
+                fontSize: '20px', fontWeight: '900', color: '#3498db', 
+                textTransform: 'uppercase', letterSpacing: '5px' 
+              }}>
+                {servicios[0] ? new Date(servicios[0].Fecha + "T00:00:00").toLocaleDateString('es-ES', { weekday: 'long' }) : ''}
+              </div>
               <div style={{ fontSize: '60px', fontWeight: '900', fontFamily: "'Archivo Black', sans-serif" }}>
                 {servicios[0] ? new Date(servicios[0].Fecha + "T00:00:00").getDate() : ''}
               </div>
@@ -125,7 +155,7 @@ const GeneradorInforme = ({ servicios, datosFlyer, fecha }) => {
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column' }}>
-            {/* CABECERAS */}
+            {/* CABECERAS DE JORNADA */}
             <div style={{ display: 'flex', marginBottom: '20px' }}>
               <div style={{ width: '380px' }}></div>
               <div style={{ display: 'flex', flex: 1, gap: '15px' }}>
@@ -141,7 +171,7 @@ const GeneradorInforme = ({ servicios, datosFlyer, fecha }) => {
               </div>
             </div>
 
-            {/* FILAS CON LÓGICA DE "NO REQUERIDO" */}
+            {/* CUERPO DEL CRONOGRAMA */}
             {areasOrdenadas.map((area, index) => (
               <div key={area.Id} style={{ 
                 display: 'flex', flexWrap: 'nowrap', alignItems: 'stretch',
@@ -159,7 +189,7 @@ const GeneradorInforme = ({ servicios, datosFlyer, fecha }) => {
                   {area.Nombre}
                 </div>
 
-                {/* COLUMNAS DE SERVIDORES */}
+                {/* ASIGNACIONES */}
                 <div style={{ display: 'flex', flexWrap: 'nowrap', flex: 1, gap: '15px' }}>
                   {servicios.map((s) => {
                     const nombre = datosFlyer.asignaciones[area.Id]?.[s.Id] || '';
@@ -177,12 +207,8 @@ const GeneradorInforme = ({ servicios, datosFlyer, fecha }) => {
                           </span>
                         ) : (
                           <span style={{ 
-                              fontSize: '14px', // Más pequeña para que no estorbe
-                              fontWeight: '700', 
-                              color: colors.muted, 
-                              fontStyle: 'italic',
-                              textTransform: 'uppercase',
-                              lineHeight: '1.2'
+                              fontSize: '14px', fontWeight: '700', color: colors.muted, 
+                              fontStyle: 'italic', textTransform: 'uppercase', lineHeight: '1.2'
                           }}>
                             Área no<br/>requerida
                           </span>
@@ -195,6 +221,7 @@ const GeneradorInforme = ({ servicios, datosFlyer, fecha }) => {
             ))}
           </div>
           
+          {/* PIE DE PÁGINA DEL FLYER */}
           <div style={{ marginTop: '30px', textAlign: 'center', color: colors.muted, fontWeight: '700', fontSize: '14px' }}>
             DEPARTAMENTO DE PRODUCCIÓN • FLYER OFICIAL {new Date().getFullYear()}
           </div>
