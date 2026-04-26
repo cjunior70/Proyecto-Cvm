@@ -14,7 +14,7 @@ export default function ModalGenerarDeLosServicios({ visible, onClose, onConfirm
       // 1. Calculamos el mes y año objetivo (el próximo mes)
       const fechaReferencia = new Date();
       fechaReferencia.setMonth(fechaReferencia.getMonth() + 1);
-      const mesObjetivo = fechaReferencia.getMonth() ;
+      const mesObjetivo = fechaReferencia.getMonth() + 1 ;
       const anioObjetivo = fechaReferencia.getFullYear();
 
       // 2. Inyectamos la regla en Control_Acceso
