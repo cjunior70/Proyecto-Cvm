@@ -140,10 +140,10 @@ const GeneradorInforme = ({ servicios = [], datosFlyer = { areas: [], asignacion
           }}>
             <div>
               <h1 style={{ margin: 0, fontSize: '52px', fontWeight: '900', fontFamily: "'Archivo Black', sans-serif" }}>EQUIPO PRODUCCIÓN</h1>
-              <p style={{ margin: '10px 0 0 0', fontSize: '24px', opacity: 0.8 }}>{getMesAnio()}</p>
+              <p style={{ margin: '20px 0 0 0', fontSize: '24px', opacity: 0.8 }}>{getMesAnio()}</p>
             </div>
             <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: '20px', fontWeight: '900', color: '#3498db', letterSpacing: '5px' }}>
+              <div style={{ fontSize: '40px', fontWeight: '900', color: '#3498db', letterSpacing: '5px' }}>
                 {serviciosOrdenados[0] ? new Date(serviciosOrdenados[0].Fecha + "T00:00:00").toLocaleDateString('es-ES', { weekday: 'long' }).toUpperCase() : ''}
               </div>
               <div style={{ fontSize: '60px', fontWeight: '900', fontFamily: "'Archivo Black', sans-serif" }}>
@@ -158,8 +158,8 @@ const GeneradorInforme = ({ servicios = [], datosFlyer = { areas: [], asignacion
               <div style={{ display: 'flex', flex: 1, gap: '15px' }}>
                 {serviciosOrdenados.map((s) => (
                   <div key={s.Id} style={{ flex: 1, background: colors.sky, padding: '25px', borderRadius: '25px 25px 0 0', color: 'white', textAlign: 'center' }}>
-                    <div style={{ fontSize: '14px', fontWeight: '900' }}>{s.Jornada}</div>
-                    <div style={{ fontSize: '28px', fontWeight: '900', fontFamily: "'Archivo Black', sans-serif" }}>{s.Tipo}</div>
+                    <div style={{ fontSize: '30px', fontWeight: '900', fontFamily: "'Archivo Black', sans-serif" }}>{s.Tipo}</div>
+                    <div style={{ fontSize: '24px', fontWeight: '900', }}>{s.Jornada}</div>
                   </div>
                 ))}
               </div>
@@ -172,7 +172,7 @@ const GeneradorInforme = ({ servicios = [], datosFlyer = { areas: [], asignacion
               }}>
                 <div style={{ 
                   width: '380px', minHeight: '90px', display: 'flex', alignItems: 'center',
-                  color: colors.text, fontWeight: '900', fontSize: '18px', borderLeft: `12px solid ${colors.sky}`, paddingLeft: '25px'
+                  color: colors.text, fontWeight: '900', fontSize: '26px', borderLeft: `12px solid ${colors.sky}`, paddingLeft: '25px'
                 }}>
                   {area.Nombre}
                 </div>
