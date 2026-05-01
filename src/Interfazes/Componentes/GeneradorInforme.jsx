@@ -14,6 +14,10 @@ const GeneradorInforme = ({ servicios = [], datosFlyer = { areas: [], asignacion
     muted: '#94a3b8'
   };
 
+  console.log("esto es lo mismo: ", servicios);
+  console.log("esto es lo mismo: ", datosFlyer);
+  console.log("esto es lo mismo: ", fecha);
+
   const PRIORIDAD_AREAS = [
     "COORDINADOR GENERAL",
     "VJ",
@@ -134,13 +138,14 @@ const GeneradorInforme = ({ servicios = [], datosFlyer = { areas: [], asignacion
       <div style={{ position: 'absolute', left: '-9999px', top: '0', zIndex: -1 }}>
         <div ref={downloadRef} style={{ width: '1300px', padding: '60px', background: '#f8fafc', fontFamily: "'Inter', sans-serif" }}>
           
+          {/* ENCABEZADO */}
           <div style={{ 
             background: colors.navy, padding: '50px', borderRadius: '35px', marginBottom: '50px',
             display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: 'white'
           }}>
             <div>
               <h1 style={{ margin: 0, fontSize: '52px', fontWeight: '900', fontFamily: "'Archivo Black', sans-serif" }}>EQUIPO PRODUCCIÓN</h1>
-              <p style={{ margin: '20px 0 0 0', fontSize: '24px', opacity: 0.8 }}>{getMesAnio()}</p>
+              <p style={{ margin: '20px 0 0 0', fontSize: '24px', opacity: 0.8 }}>{getMesAnio()} — {fecha}</p>
             </div>
             <div style={{ textAlign: 'right' }}>
               <div style={{ fontSize: '40px', fontWeight: '900', color: '#3498db', letterSpacing: '5px' }}>
@@ -153,6 +158,7 @@ const GeneradorInforme = ({ servicios = [], datosFlyer = { areas: [], asignacion
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column' }}>
+            {/* CABECERA DE SERVICIOS */}
             <div style={{ display: 'flex', marginBottom: '20px' }}>
               <div style={{ width: '380px' }}></div>
               <div style={{ display: 'flex', flex: 1, gap: '15px' }}>
@@ -165,41 +171,89 @@ const GeneradorInforme = ({ servicios = [], datosFlyer = { areas: [], asignacion
               </div>
             </div>
 
-            {areasOrdenadas.map((area, index) => (
-              <div key={area.Id} style={{ 
-                display: 'flex', alignItems: 'stretch', background: index % 2 === 0 ? 'rgba(0,0,0,0.04)' : 'white',
-                borderBottom: '2px solid #e2e8f0', marginBottom: '5px', borderRadius: '15px'
-              }}>
-                <div style={{ 
-                  width: '380px', minHeight: '90px', display: 'flex', alignItems: 'center',
-                  color: colors.text, fontWeight: '900', fontSize: '26px', borderLeft: `12px solid ${colors.sky}`, paddingLeft: '25px'
+            {/* FILAS DE ÁREAS */}
+           {areasOrdenadas.map((area, index) => (
+  <div key={area.Id} style={{ 
+    display: 'flex', alignItems: 'stretch', background: index % 2 === 0 ? 'rgba(0,0,0,0.04)' : 'white',
+    borderBottom: '2px solid #e2e8f0', marginBottom: '5px', borderRadius: '15px'
+  }}>
+    <div style={{ 
+      width: '380px', minHeight: '110px', display: 'flex', alignItems: 'center',
+      color: colors.text, fontWeight: '900', fontSize: '26px', borderLeft: `12px solid ${colors.sky}`, paddingLeft: '25px'
+    }}>
+      {area.Nombre}
+    </div>
+    <div style={{ display: 'flex', flex: 1, gap: '15px' }}>
+      {serviciosOrdenados.map((s) => {
+        // 1. Extraemos el objeto de asignación
+        const asignacion = datosFlyer.asignaciones?.[area.Id]?.[s.Id];
+        
+        // 2. Verificamos si existe el objeto y si tiene al menos un titular o un apoyo
+        const tieneTitular = asignacion?.titular && asignacion.titular.trim() !== "";
+        const tieneApoyo = asignacion?.apoyo && asignacion.apoyo.trim() !== "";
+
+        return (
+          <div key={s.Id} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '15px' }}>
+            { (tieneTitular || tieneApoyo) ? (
+              <>
+                {/* MOSTRAR TITULAR */}
+                <span style={{ 
+                  color: colors.navy, 
+                  fontSize: '26px', 
+                  fontWeight: '900', 
+                  textAlign: 'center', 
+                  fontFamily: "'Archivo Black', sans-serif",
+                  textTransform: 'uppercase',
+                  lineHeight: '1.1'
                 }}>
-                  {area.Nombre}
-                </div>
-                <div style={{ display: 'flex', flex: 1, gap: '15px' }}>
-                  {serviciosOrdenados.map((s) => {
-                    const nombre = datosFlyer.asignaciones?.[area.Id]?.[s.Id] || '';
-                    return (
-                     <div key={s.Id} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '15px' }}>
-                      <span style={{ 
-                        // Si NO hay nombre, aplicamos color gris e inclinación (italiano/italic)
-                        // Si SÍ hay nombre, usamos el color navy y normal
-                        color: nombre ? colors.navy : '#cbd5e1', 
-                        fontStyle: nombre ? 'normal' : 'italic',
-                        fontSize: nombre ? '26px' : '12px', // Un poco más pequeño si no es requerido
-                        fontWeight: '900', 
-                        textAlign: 'center', 
-                        fontFamily: "'Archivo Black', sans-serif",
-                        textTransform: 'uppercase'
-                      }}>
-                        {nombre || 'ÁREA NO REQUERIDA'}
-                      </span>
-                    </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
+                  {tieneTitular ? asignacion.titular : 'VACANTE'}
+                </span>
+                
+                {/* MOSTRAR APOYO (Si existe) */}
+                {tieneApoyo && (
+                  <div style={{ 
+                    marginTop: '8px',
+                    background: '#e0f2fe',
+                    color: '#0369a1',
+                    padding: '4px 15px',
+                    borderRadius: '12px',
+                    fontSize: '20px',
+                    fontWeight: '700',
+                    border: '1px solid #bae6fd',
+                    textTransform: 'uppercase'
+                  }}>
+                    <i className="bi bi-person-plus-fill" style={{ marginRight: '8px' }}></i>
+                    {asignacion.apoyo}
+                  </div>
+                )}
+              </>
+            ) : (
+              /* ÁREA NO REQUERIDA O VACÍA */
+              <span style={{ 
+                color: '#cbd5e1', 
+                fontStyle: 'italic',
+                fontSize: '14px',
+                fontWeight: '900', 
+                textAlign: 'center', 
+                fontFamily: "'Archivo Black', sans-serif",
+                textTransform: 'uppercase'
+              }}>
+                ÁREA NO REQUERIDA
+              </span>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  </div>
+))}
+          </div>
+
+          {/* PIE DE PÁGINA DEL FLYER */}
+          <div style={{ marginTop: '40px', textAlign: 'center', opacity: 0.6 }}>
+            <p style={{ fontSize: '20px', fontWeight: '700', color: colors.navy }}>
+              POR FAVOR LLEGAR 30 MINUTOS ANTES PARA SETUP Y ORACIÓN
+            </p>
           </div>
         </div>
       </div>
