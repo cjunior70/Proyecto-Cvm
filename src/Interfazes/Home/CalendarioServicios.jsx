@@ -22,38 +22,59 @@ export default function CalendarioServicios() {
   useEffect(() => { cargarDatos(); }, [fecha]);
 
   const cargarDatos = async () => {
-    setCargando(true);
-    try {
-      const data = await obtenerProximoDiaConServicios(fecha);
-      setServicios(data || []);
+  setCargando(true);
+  try {
+    const data = await obtenerProximoDiaConServicios(fecha);
+    setServicios(data || []);
 
-      if (data && data.length > 0) {
-        const { data: areas } = await supabase.from("Aerea").select("*").order("Nombre", { ascending: true });
+    if (data && data.length > 0) {
+      const { data: areas } = await supabase.from("Aerea").select("*").order("Nombre", { ascending: true });
+      
+      const idsServicios = data.map(s => s.Id);
+      const { data: asignacionesRaw, error } = await supabase
+        .from("Cronograma")
+        .select(`
+          IdServicio,
+          IdServidorExtra,
+          Servidor_Area (
+            IdAerea,
+            Aerea ( Nombre ),
+            Servidores ( Nombre )
+          ),
+          Servidores!IdServidorExtra ( Nombre )
+        `)
+        .in("IdServicio", idsServicios);  
+
+      const mapa = {};
+      
+      asignacionesRaw?.forEach(asig => {
+        const idArea = asig.Servidor_Area?.IdAerea;
+        const idServ = asig.IdServicio;
         
-        const idsServicios = data.map(s => s.Id);
-        const { data: asignacionesRaw } = await supabase
-          .from("Cronograma")
-          .select(`IdServicio, Servidor_Area ( IdAerea, Servidores ( Nombre ) )`)
-          .in("IdServicio", idsServicios);
+        // El titular viene de la relación Servidor_Area
+        const titular = asig.Servidor_Area?.Servidores?.Nombre || "";
+        // El apoyo viene de la relación directa con Servidores usando IdServidorExtra
+        const apoyo = asig.Servidores?.Nombre || "";
 
-        const mapa = {};
-        asignacionesRaw?.forEach(asig => {
-          const idArea = asig.Servidor_Area?.IdAerea;
-          const idServ = asig.IdServicio;
-          const nombre = asig.Servidor_Area?.Servidores?.Nombre;
-          if (idArea && idServ) {
-            if (!mapa[idArea]) mapa[idArea] = {};
-            mapa[idArea][idServ] = nombre;
-          }
-        });
-        setDatosFlyer({ areas: areas || [], asignaciones: mapa });
-      }
-    } catch (e) { 
-      console.error(e); 
-    } finally { 
-      setCargando(false); 
+        if (idArea && idServ) {
+          if (!mapa[idArea]) mapa[idArea] = {};
+          
+          // Guardamos ambos en un objeto para que el GeneradorInforme tenga toda la data
+          mapa[idArea][idServ] = {
+            titular: titular,
+            apoyo: apoyo
+          };
+        }
+      });
+
+      setDatosFlyer({ areas: areas || [], asignaciones: mapa });
     }
-  };
+  } catch (e) { 
+    console.error(e); 
+  } finally { 
+    setCargando(false); 
+  }
+};
 
   const guardarRangoEspecífico = async () => {
     if (!rango.apertura || !rango.cierre) return Swal.fire("Hey", "Llena los campos", "info");

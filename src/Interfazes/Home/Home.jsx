@@ -1,91 +1,89 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { supabase } from "../../../Supabase/cliente";
-import CartaCronograma from "../Componentes/CartaCronograma";
+import CartaCronograma from "../Componentes/CartaCronograma"; 
+import Swal from "sweetalert2";
 
 export default function Home() {
-  const [proximoServicio, setProximoServicio] = useState([]); // El grupo más cercano
-  const [futurosServicios, setFuturosServicios] = useState([]); // El resto del mes
+  const [proximoServicio, setProximoServicio] = useState([]);
+  const [futurosServicios, setFuturosServicios] = useState([]);
   const [totalPendientes, setTotalPendientes] = useState(0);
-  const [carga, setcarga] = useState(false);
-  const [servicioSeleccionado, setServicioSeleccionado] = useState(null);
-
-  const hoy = new Date().toLocaleDateString("es-ES", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
+  const [cargando, setCargando] = useState(true);
+  
+  const hoyFecha = new Date().toLocaleDateString('es-ES', { 
+    weekday: 'long', day: 'numeric', month: 'long' 
   });
 
-  const cargarProximoServicio = async (idServidorActual) => {
+  const cargarMiAgenda = async () => {
+    setCargando(true);
     try {
-      if (!idServidorActual) {
-        setcarga(true);
-        return;
-      }
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      
+      const miId = user.id;
+      const hoyISO = new Date().toISOString().split('T')[0];
 
       const { data, error } = await supabase
         .from("Cronograma")
         .select(`
-          Id,
-          Servicio ( Fecha, Jornada ),
-          Servidor_Area (
+          IdServidorExtra,
+          Servicio!inner ( *, Fecha ),
+          Servidor_Area!inner (
             IdServidor,
             Aerea ( Nombre )
           )
         `)
-        .order("Id", { ascending: true }); 
+        .gte("Servicio.Fecha", hoyISO);
 
       if (error) throw error;
 
-      const misAsignaciones = data?.filter(
-        (item) => item.Servidor_Area?.IdServidor === idServidorActual
-      ) || [];
+      // Filtrado con validación de existencia
+      const misAsignaciones = (data || []).filter(asig => 
+        asig?.IdServidorExtra === miId || asig?.Servidor_Area?.IdServidor === miId
+      );
 
-      setTotalPendientes(misAsignaciones.length);
+      const mapeo = {};
+      misAsignaciones.forEach(asig => {
+        const s = asig?.Servicio;
+        if (s && s.Id) {
+          if (!mapeo[s.Id]) {
+            mapeo[s.Id] = { ...s, Cronograma: [asig] };
+          } else {
+            mapeo[s.Id].Cronograma.push(asig);
+          }
+        }
+      });
 
-      if (misAsignaciones.length > 0) {
-        // Ordenamos por fecha para asegurar que el primero sea el más cercano
-        const ordenados = [...misAsignaciones].sort((a, b) => 
-            new Date(a.Servicio.Fecha) - new Date(b.Servicio.Fecha)
-        );
+      const listaOrdenada = Object.values(mapeo).sort((a, b) => 
+        new Date(a.Fecha) - new Date(b.Fecha)
+      );
 
-        const fechaMasCercana = ordenados[0].Servicio.Fecha;
-
-        // Separamos: Los que son de la fecha más próxima vs los demás
-        const masProximos = ordenados.filter(item => item.Servicio.Fecha === fechaMasCercana);
-        const restantes = ordenados.filter(item => item.Servicio.Fecha !== fechaMasCercana);
-
-        setProximoServicio(masProximos);
-        setFuturosServicios(restantes);
+      if (listaOrdenada.length > 0) {
+        setProximoServicio([listaOrdenada[0]]);
+        setFuturosServicios(listaOrdenada.slice(1));
+        setTotalPendientes(listaOrdenada.length);
       } else {
         setProximoServicio([]);
         setFuturosServicios([]);
+        setTotalPendientes(0);
       }
 
     } catch (error) {
-      console.error("❌ Error inesperado:", error);
+      console.error("Error cargando agenda:", error);
+      Swal.fire("Error", "No se pudo cargar la agenda", "error");
     } finally {
-      setcarga(true);
+      setCargando(false);
     }
   };
 
-  useEffect(() => {
-    const init = async () => {
-      const { data: { user }, error } = await supabase.auth.getUser();
-      if (error || !user) {
-        setcarga(true);
-        return;
-      }
-      await cargarProximoServicio(user.id);
-    };
-    init();
+  useEffect(() => { 
+    cargarMiAgenda(); 
   }, []);
 
-  if (!carga) {
+  // Si está cargando, mostramos un spinner para que no se vea blanco
+  if (cargando) {
     return (
-      <div className="d-flex flex-column align-items-center justify-content-center" style={{ minHeight: '70vh' }}>
-        <div className="spinner-border text-primary mb-2" />
-        <p className="text-muted fw-bold">Buscando tus servicios...</p>
+      <div className="min-vh-100 d-flex align-items-center justify-content-center bg-light">
+        <div className="spinner-border text-primary" role="status"></div>
       </div>
     );
   }
@@ -94,8 +92,8 @@ export default function Home() {
     <div className="min-vh-100 bg-light pb-5">
       <div className="bg-dark text-white p-4 pb-5 rounded-bottom-5 shadow-lg">
         <div className="d-flex justify-content-between align-items-center mb-4">
-          <div className="bg-primary-subtle p-2 rounded-3">
-            <i className="bi bi-bell-fill text-primary fs-5"></i>
+          <div className="bg-primary-subtle p-2 rounded-3" onClick={cargarMiAgenda} style={{cursor: 'pointer'}}>
+            <i className="bi bi-arrow-clockwise text-primary fs-5"></i>
           </div>
           <span className="badge rounded-pill bg-glass py-2 px-3 fw-bold" style={{ fontSize: '11px' }}>
             {totalPendientes} PENDIENTES
@@ -104,7 +102,7 @@ export default function Home() {
         
         <div className="text-center">
           <h6 className="text-uppercase opacity-50 fw-bold mb-1" style={{ fontSize: '10px', letterSpacing: '2px' }}>
-            {hoy}
+            {hoyFecha}
           </h6>
           <h2 className="fw-bold mb-0">Mi Agenda</h2>
           <p className="small opacity-75">Tus próximos pasos en el servicio</p>
@@ -113,7 +111,7 @@ export default function Home() {
 
       <div className="container" style={{ marginTop: '-30px' }}>
         {totalPendientes === 0 ? (
-          <div className="card border-0 shadow-sm rounded-5 py-5 px-4 text-center bg-white animate__animated animate__fadeIn">
+          <div className="card border-0 shadow-sm rounded-5 py-5 px-4 text-center bg-white">
             <div className="py-4">
               <div className="mb-3 display-4 opacity-25">📭</div>
               <h5 className="fw-bold text-dark">Todo al día</h5>
@@ -124,22 +122,20 @@ export default function Home() {
           </div>
         ) : (
           <div className="row g-3">
-            
-            {/* SECCIÓN: SERVICIO MÁS PRÓXIMO */}
             <div className="col-12 mt-2 mb-1">
                 <span className="badge bg-primary text-uppercase px-3 py-2 rounded-pill shadow-sm" style={{fontSize: '10px', letterSpacing: '1px'}}>
                    Servicio más próximo
                 </span>
             </div>
-            {proximoServicio.map((item, index) => (
+            
+            {proximoServicio.map((item) => (
               <div key={item.Id} className="col-12 animate__animated animate__fadeInUp">
                 <div className="card border-0 shadow-sm rounded-4 overflow-hidden border-start border-primary border-4">
-                  <CartaCronograma servicio={item} onClick={() => setServicioSeleccionado(item)} />
+                  <CartaCronograma servicio={item} />
                 </div>
               </div>
             ))}
 
-            {/* SECCIÓN: RESTO DEL MES (Si existen) */}
             {futurosServicios.length > 0 && (
                 <>
                     <div className="col-12 mt-4 mb-1 d-flex align-items-center">
@@ -149,41 +145,22 @@ export default function Home() {
                         </span>
                         <hr className="flex-grow-1 opacity-10" />
                     </div>
-                    {futurosServicios.map((item, index) => (
-                    <div key={item.Id} className="col-12 animate__animated animate__fadeInUp">
-                        <div className="card border-0 shadow-sm rounded-4 overflow-hidden opacity-75">
-                        <CartaCronograma servicio={item} onClick={() => setServicioSeleccionado(item)} />
-                        </div>
-                    </div>
+                    {futurosServicios.map((item) => (
+                      <div key={item.Id} className="col-12 animate__animated animate__fadeInUp">
+                          <div className="card border-0 shadow-sm rounded-4 overflow-hidden opacity-75">
+                            <CartaCronograma servicio={item} />
+                          </div>
+                      </div>
                     ))}
                 </>
             )}
           </div>
         )}
-
-        <div className="text-center mt-5">
-          <div className="p-3 rounded-4 bg-primary-subtle d-inline-block">
-              <small className="text-primary fw-bold">
-                  <i className="bi bi-info-circle-fill me-2"></i>
-                  Llega 30 minutos antes de tu servicio
-              </small>
-          </div>
-        </div>
       </div>
 
       <style>{`
         .rounded-bottom-5 { border-bottom-left-radius: 45px; border-bottom-right-radius: 45px; }
         .bg-glass { background: rgba(255, 255, 255, 0.15); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); }
-        
-        /* SOLUCIÓN AL NOMBRE LARGO: Agrega esto para que el área no empuje el diseño */
-        .text-truncate-area {
-            display: inline-block;
-            max-width: 150px; /* Ajusta según tu necesidad */
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            vertical-align: middle;
-        }
       `}</style>
     </div>
   );
