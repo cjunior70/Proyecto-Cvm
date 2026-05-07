@@ -89,7 +89,7 @@ export default function Home() {
   }
 
   return (
-    <div className="min-vh-100 bg-light pb-5">z
+    <div className="min-vh-100 bg-light pb-5">
       <div className="bg-dark text-white p-4 pb-5 rounded-bottom-5 shadow-lg">
         <div className="d-flex justify-content-between align-items-center mb-4">
           <div className="bg-primary-subtle p-2 rounded-3" onClick={cargarMiAgenda} style={{cursor: 'pointer'}}>
