@@ -14,10 +14,6 @@ const GeneradorInforme = ({ servicios = [], datosFlyer = { areas: [], asignacion
     muted: '#94a3b8'
   };
 
-  console.log("esto es lo mismo: ", servicios);
-  console.log("esto es lo mismo: ", datosFlyer);
-  console.log("esto es lo mismo: ", fecha);
-
   const PRIORIDAD_AREAS = [
     "COORDINADOR GENERAL",
     "VJ",

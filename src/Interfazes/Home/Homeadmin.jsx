@@ -45,7 +45,6 @@ export default function Homeadmin() {
     const confirmacion = await Swal.fire({
       title: '¿Automatizar Cronograma?',
       text: "Se asignarán servidores fijos a todos los servicios del próximo mes.",
-      icon: 'magic', // Icono de magia si la librería lo soporta o 'question'
       showCancelButton: true,
       confirmButtonColor: '#0d6efd',
       cancelButtonColor: '#6c757d',
