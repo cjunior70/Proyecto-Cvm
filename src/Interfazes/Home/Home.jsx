@@ -58,8 +58,17 @@ export default function Home() {
       );
 
       if (listaOrdenada.length > 0) {
-        setProximoServicio([listaOrdenada[0]]);
-        setFuturosServicios(listaOrdenada.slice(1));
+        // 1. Obtenemos la fecha del primer servicio (el más próximo)
+        const fechaProxima = listaOrdenada[0].Fecha;
+
+        // 2. Filtramos todos los servicios que tengan esa misma fecha
+        const serviciosDeEseDia = listaOrdenada.filter(s => s.Fecha === fechaProxima);
+        
+        // 3. Los servicios que NO son de esa fecha van a "futuros"
+        const serviciosRestantes = listaOrdenada.filter(s => s.Fecha !== fechaProxima);
+
+        setProximoServicio(serviciosDeEseDia); // Ahora es un array con todos los turnos del día
+        setFuturosServicios(serviciosRestantes);
         setTotalPendientes(listaOrdenada.length);
       } else {
         setProximoServicio([]);
