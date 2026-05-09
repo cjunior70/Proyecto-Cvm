@@ -1,231 +1,254 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../../Supabase/cliente";
+import Swal from "sweetalert2";
 
-export default function Disponibilidad() {
-  const [diasDisponibles, setDiasDisponibles] = useState([]);
-  const [disponibilidadesUser, setDisponibilidadesUser] = useState([]);
-  const [reglasAcceso, setReglasAcceso] = useState([]);
-  const [carga, setCarga] = useState(false);
+export default function DisponibilidadLibreControlada() {
+  const [serviciosPorDia, setServiciosPorDia] = useState([]);
+  const [seleccionados, setSeleccionados] = useState(new Set());
+  const [loading, setLoading] = useState(true);
+  const [estaAbierto, setEstaAbierto] = useState(false);
+  const [infoApertura, setInfoApertura] = useState(null);
+  const [guardando, setGuardando] = useState(false);
   const navigate = useNavigate();
 
-  // 1. CARGA INICIAL CON LÓGICA DE VISIBILIDAD (DÍA 27)
-  const inicializar = async () => {
+  // Validación de acceso global
+  const verificarAccesoGlobal = useCallback((control) => {
+    if (!control) return false;
+    const hoy = new Date();
+    const hoyStr = hoy.toISOString().split('T')[0];
+
+    const dentroDelRango = hoyStr >= control.Fecha_apertura && hoyStr <= control.Fecha_cierre;
+    const esDiaEspecial = control.Fecha_especifica && hoyStr === control.Fecha_especifica;
+
+    return dentroDelRango || esDiaEspecial;
+  }, []);
+
+  const inicializar = useCallback(async () => {
+    setLoading(true);
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData?.user) return;
-      const userId = userData.user.id;
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: control } = await supabase
+        .from("Control_Disponibilidad")
+        .select("*")
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      const tieneAcceso = verificarAccesoGlobal(control);
+      setInfoApertura(control);
+      setEstaAbierto(tieneAcceso);
 
       const hoy = new Date();
-      const hoyStr = hoy.toISOString().split("T")[0];
-      const diaDelMes = hoy.getDate();
-      
-      // Si es 27 o más, vemos hasta el fin del PRÓXIMO mes
-      let fechaFinBusqueda;
-      if (diaDelMes >= 25) {
-        fechaFinBusqueda = new Date(hoy.getFullYear(), hoy.getMonth() + 2, 0).toISOString().split('T')[0];
-      } else {
-        fechaFinBusqueda = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).toISOString().split('T')[0];
-      }
+      let fechaInicio = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+      if (hoy.getDate() >= 27) fechaInicio = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 1);
+      const inicioStr = fechaInicio.toISOString().split('T')[0];
+      const finMesStr = new Date(fechaInicio.getFullYear(), fechaInicio.getMonth() + 1, 0).toISOString().split('T')[0];
 
-      // A. Servicios (Agrupados por fecha para evitar repetidos)
-      const { data: servData } = await supabase
-        .from("Servicio")
-        .select("Id, Fecha")
-        .gte("Fecha", hoyStr)
-        .lte("Fecha", fechaFinBusqueda)
-        .order("Fecha", { ascending: true });
+      const [servResp, userResp] = await Promise.all([
+        supabase.from("Servicio").select("*").gte("Fecha", inicioStr).lte("Fecha", finMesStr).order("Fecha"),
+        supabase.from("Disponbilidad").select("Fecha, Jornada").eq("IdServidor", user.id).gte("Fecha", inicioStr)
+      ]);
 
-      const fechasUnicas = [];
-      const mapaFechas = new Set();
-      (servData || []).forEach(item => {
-        if (!mapaFechas.has(item.Fecha)) {
-          mapaFechas.add(item.Fecha);
-          fechasUnicas.push(item);
-        }
+      const mapDias = {};
+      (servResp.data || []).forEach(s => {
+        if (!mapDias[s.Fecha]) mapDias[s.Fecha] = { fecha: s.Fecha, servicios: [] };
+        mapDias[s.Fecha].servicios.push(s);
       });
-      setDiasDisponibles(fechasUnicas);
 
-      // B. Reglas de Control (Mayúsculas según tu SQL)
-      const { data: reglas } = await supabase.from("Control_Disponibilidad").select("*");
-      setReglasAcceso(reglas || []);
-
-      // C. Lo que el usuario ya marcó
-      const { data: miDispo } = await supabase
-        .from("Disponbilidad")
-        .select("Fecha")
-        .eq("IdServidor", userId)
-        .gte("Fecha", hoyStr);
-
-      setDisponibilidadesUser(miDispo?.map(d => d.Fecha) || []);
-
+      setServiciosPorDia(Object.values(mapDias));
+      setSeleccionados(new Set(userResp.data?.map(d => `${d.Fecha}|${d.Jornada}`)));
     } catch (e) {
-      console.error("Error al inicializar:", e);
+      console.error("Error:", e);
     } finally {
-      setCarga(true);
+      setLoading(false);
     }
+  }, [verificarAccesoGlobal]);
+
+  useEffect(() => { inicializar(); }, [inicializar]);
+
+  // Lógica de bloqueo por Fecha_especifica
+  const toggleServicio = (fecha, jornada) => {
+    if (!estaAbierto) return;
+
+    // Si hay una fecha específica, BLOQUEAMOS cualquier otra que no sea esa
+    if (infoApertura?.Fecha_especifica && fecha !== infoApertura.Fecha_especifica) {
+      return Swal.fire({
+        title: 'Día no habilitado',
+        text: `Actualmente solo se permite edición para el día ${infoApertura.Fecha_especifica}.`,
+        icon: 'info',
+        timer: 2000,
+        showConfirmButton: false
+      });
+    }
+
+    const key = `${fecha}|${jornada}`;
+    setSeleccionados(prev => {
+      const nuevo = new Set(prev);
+      if (nuevo.has(key)) nuevo.delete(key);
+      else nuevo.add(key);
+      return nuevo;
+    });
   };
 
-  // 2. LÓGICA DE VALIDACIÓN (DÍA ESPECÍFICO O MES GLOBAL)
-  const verificarBloqueo = (servicio) => {
-    const hoyStr = new Date().toISOString().split('T')[0];
-    const fechaServicioStr = servicio.Fecha;
+  const confirmarGuardado = () => {
+    if (seleccionados.size === 0) return Swal.fire('Atención', 'Selecciona al menos un servicio.', 'warning');
 
-    // A. ¿Hay regla para este día exacto?
-    const reglaPorDia = reglasAcceso.find(r => r.Fecha_especifica === fechaServicioStr);
-
-    if (reglaPorDia) {
-      const estaAbierto = hoyStr >= reglaPorDia.Fecha_apertura && hoyStr <= reglaPorDia.Fecha_cierre;
-      return !estaAbierto; 
-    }
-
-    // B. ¿Hay regla para el mes completo?
-    const fechaObj = new Date(fechaServicioStr + "T00:00:00");
-    const mesS = (fechaObj.getMonth() + 1).toString();
-    const anioS = fechaObj.getFullYear().toString();
-
-    const reglaGlobal = reglasAcceso.find(r => 
-      String(r.Mes) === mesS && String(r.Año) === anioS && !r.Fecha_especifica
-    );
-
-    if (reglaGlobal) {
-      const estaAbiertoGlobal = hoyStr >= reglaGlobal.Fecha_apertura && hoyStr <= reglaGlobal.Fecha_cierre;
-      return !estaAbiertoGlobal;
-    }
-
-    return true; // Bloqueado si no hay nada configurado
+    Swal.fire({
+      title: '¿Confirmar selección?',
+      text: `Te apuntarás en ${seleccionados.size} servicio(s).`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#000',
+      confirmButtonText: 'Sí, guardar',
+      cancelButtonText: 'Cancelar'
+    }).then((result) => {
+      if (result.isConfirmed) ejecutarGuardado();
+    });
   };
 
-  // 3. ACCIÓN DEL SWITCH (SOLO SI NO ESTÁ BLOQUEADO)
-  const handleToggle = async (servicio) => {
-    if (verificarBloqueo(servicio)) return;
-
+  const ejecutarGuardado = async () => {
+    setGuardando(true);
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      const userId = userData.user.id;
-      const yaRegistrado = disponibilidadesUser.includes(servicio.Fecha);
+      const { data: { user } } = await supabase.auth.getUser();
+      const hoy = new Date();
+      const inicioPeriodo = new Date(hoy.getFullYear(), hoy.getMonth() + (hoy.getDate() >= 27 ? 1 : 0), 1).toISOString().split('T')[0];
 
-      if (yaRegistrado) {
-        setDisponibilidadesUser(prev => prev.filter(f => f !== servicio.Fecha));
-        await supabase.from("Disponbilidad").delete().eq("IdServidor", userId).eq("Fecha", servicio.Fecha);
-      } else {
-        setDisponibilidadesUser(prev => [...prev, servicio.Fecha]);
-        await supabase.from("Disponbilidad").insert([{ IdServidor: userId, Fecha: servicio.Fecha }]);
+      // Borramos lo anterior para que el servidor se vuelva libre
+      await supabase.from("Disponbilidad").delete().eq("IdServidor", user.id).gte("Fecha", inicioPeriodo);
+
+      const payload = Array.from(seleccionados).map(item => {
+        const [fecha, jornada] = item.split('|');
+        return {
+          IdServidor: user.id,
+          Fecha: fecha,
+          Jornada: jornada,
+          Dia: new Date(fecha + "T00:00:00").toLocaleDateString('es', { weekday: 'long' })
+        };
+      });
+
+      if (payload.length > 0) {
+        const { error } = await supabase.from("Disponbilidad").insert(payload);
+        if (error) throw error;
       }
+
+      Swal.fire({ icon: 'success', title: '¡Guardado!', showConfirmButton: false, timer: 1500 });
+      setTimeout(() => navigate(-1), 1500);
     } catch (e) {
-      console.error(e);
-      inicializar();
+      Swal.fire('Error', e.message, 'error');
+    } finally {
+      setGuardando(false);
     }
   };
 
-  useEffect(() => { inicializar(); }, []);
-
-  if (!carga) return <div className="text-center py-5 mt-5"><div className="spinner-border text-primary"></div></div>;
+  if (loading) return <div className="min-vh-100 d-flex align-items-center justify-content-center bg-white"><div className="spinner-border text-dark"></div></div>;
 
   return (
-    <div className="min-vh-100 bg-light pb-5">
-      {/* Header Estilizado */}
-      <div className="bg-dark text-white p-4 pb-5 rounded-bottom-5 shadow-lg text-center">
-        <div className="d-flex align-items-center gap-3 mb-4 text-start">
-          <button className="btn btn-outline-light rounded-circle border-0" onClick={() => navigate(-1)}>
-            <i className="bi bi-arrow-left fs-4"></i>
-          </button>
-          <span className="fw-bold text-uppercase small" style={{ letterSpacing: '1px' }}>Servicio</span>
-        </div>
-        <div className="bg-primary-subtle d-inline-block p-3 rounded-circle mb-3 shadow-sm">
-          <i className="bi bi-calendar-check text-primary fs-2"></i>
-        </div>
-        <h2 className="fw-bold mb-1">Disponibilidad</h2>
-        <p className="small opacity-75">Confirma los días que puedes apoyar.</p>
-      </div>
-
-      <div className="container" style={{ marginTop: '-35px' }}>
-        <div className="card border-0 shadow-lg rounded-5">
-          <div className="card-body p-3">
-            
-            {diasDisponibles.length === 0 ? (
-              <div className="text-center py-5 opacity-50">
-                <i className="bi bi-calendar-x fs-1 d-block mb-2"></i>
-                <p>No hay servicios disponibles.</p>
-              </div>
-            ) : (
-              <div className="d-flex flex-column gap-2">
-                {diasDisponibles.map((servicio, index) => {
-                  const yaRegistrado = disponibilidadesUser.includes(servicio.Fecha);
-                  const bloqueado = verificarBloqueo(servicio);
-                  const dateObj = new Date(servicio.Fecha + "T00:00:00");
-
-                  const mostrarSeparador = index === 0 || 
-                    new Date(diasDisponibles[index - 1].Fecha + "T00:00:00").getMonth() !== dateObj.getMonth();
-
-                  return (
-                    <div key={servicio.Fecha}>
-                      {mostrarSeparador && (
-                        <div className="text-center my-3">
-                          <span className="badge bg-primary bg-opacity-10 text-primary text-uppercase px-3 py-2 rounded-pill" style={{fontSize: '10px', letterSpacing: '1px'}}>
-                            {dateObj.toLocaleDateString("es-ES", { month: 'long', year: 'numeric' })}
-                          </span>
-                        </div>
-                      )}
-
-                      <div
-                        onClick={() => handleToggle(servicio)}
-                        className={`d-flex align-items-center justify-content-between p-3 rounded-4 border-2 transition-all ${
-                          bloqueado 
-                            ? (yaRegistrado ? 'bg-success-subtle border-success opacity-75' : 'bg-secondary-subtle border-transparent opacity-50') 
-                            : (yaRegistrado ? 'bg-success-subtle border-success shadow-sm' : 'bg-light border-transparent')
-                        }`}
-                        style={{ cursor: bloqueado ? 'not-allowed' : 'pointer' }}
-                      >
-                        <div className="d-flex align-items-center gap-3">
-                          {/* Mini Calendario */}
-                          <div className={`text-center rounded-4 d-flex flex-column align-items-center justify-content-center shadow-sm ${
-                            yaRegistrado ? 'bg-success text-white' : (bloqueado ? 'bg-secondary text-white' : 'bg-white text-primary border')
-                          }`} style={{ width: '55px', height: '58px' }}>
-                            <span className="text-uppercase fw-bold" style={{ fontSize: '9px' }}>{dateObj.toLocaleDateString("es-ES", { month: 'short' })}</span>
-                            <span className="fw-bolder fs-4 leading-none">{dateObj.getDate()}</span>
-                          </div>
-
-                          <div className="text-start">
-                            <div className={`fw-bold text-capitalize ${yaRegistrado ? 'text-success' : 'text-dark'}`}>
-                              {dateObj.toLocaleDateString("es-ES", { weekday: 'long' })}
-                            </div>
-                            <small className={`fw-bold ${yaRegistrado ? 'text-success' : (bloqueado ? 'text-danger' : 'text-muted')}`}>
-                              {bloqueado ? (
-                                yaRegistrado ? (
-                                  <><i className="bi bi-check-circle-fill me-1"></i>Inscrito (Plazo Cerrado)</>
-                                ) : (
-                                  <><i className="bi bi-x-circle-fill me-1"></i>No inscrito (Plazo Cerrado)</>
-                                )
-                              ) : (
-                                yaRegistrado ? <><i className="bi bi-check-circle-fill me-1"></i>Confirmado</> : "Abierto para anotarse"
-                              )}
-                            </small>
-                          </div>
-                        </div>
-
-                        {/* Switch o Candado */}
-                        <div className="ms-3">
-                          {bloqueado ? (
-                            <i className={`bi bi-lock-fill fs-4 ${yaRegistrado ? 'text-success' : 'text-secondary'}`}></i>
-                          ) : (
-                            <div className={`switch-custom ${yaRegistrado ? 'active' : ''}`}
-                              style={{ width: '50px', height: '26px', borderRadius: '50px', position: 'relative', transition: '0.3s', backgroundColor: yaRegistrado ? '#198754' : '#dee2e6', padding: '3px' }}>
-                              <div className="switch-dot shadow-sm"
-                                style={{ width: '20px', height: '20px', backgroundColor: 'white', borderRadius: '50%', position: 'absolute', transition: '0.3s', left: yaRegistrado ? '26px' : '4px' }}>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+    <div className="min-vh-100 bg-light">
+      <div className={`border-bottom shadow-sm p-3 pb-4 rounded-bottom-5 sticky-top ${estaAbierto ? 'bg-white text-dark' : 'bg-secondary text-white'}`}>
+        <div className="d-flex justify-content-between align-items-center mb-3">
+          <div className="bg-light p-2 rounded-3 shadow-sm" onClick={() => navigate(-1)} style={{ cursor: 'pointer' }}>
+            <i className="bi bi-arrow-left text-dark fs-5"></i>
           </div>
+          <span className={`badge rounded-pill py-2 px-3 fw-bold shadow-sm ${estaAbierto ? 'bg-dark text-white' : 'bg-warning text-dark'}`}>
+            {estaAbierto ? `${seleccionados.size} SELECCIONADOS` : 'MODO CONSULTA'}
+          </span>
+        </div>
+        <div className="text-center">
+          <h2 className="fw-black mb-0" style={{ fontSize: '1.8rem', letterSpacing: '-1.5px' }}>
+            {estaAbierto ? (infoApertura?.Fecha_especifica ? 'Apertura Especial' : 'Elegir Servicios') : `Agenda - ${infoApertura?.Mes}`}
+          </h2>
+          {infoApertura?.Fecha_especifica && estaAbierto && (
+            <p className="small text-danger fw-bold mb-0">Solo habilitado para el día: {infoApertura.Fecha_especifica}</p>
+          )}
         </div>
       </div>
+
+      <div className="container px-3 mt-3 pb-5">
+        <div className="row g-3">
+          {serviciosPorDia.map((dia) => {
+            const dateObj = new Date(dia.fecha + "T00:00:00");
+            // Determinamos si este día en particular está bloqueado por la Fecha_especifica
+            const esDiaBloqueado = infoApertura?.Fecha_especifica && dia.fecha !== infoApertura.Fecha_especifica;
+            
+            return (
+              <div className="col-12" key={dia.fecha}>
+                <div className={`card border-0 shadow-sm rounded-4 overflow-hidden ${(esDiaBloqueado || !estaAbierto) ? 'opacity-50' : ''}`}>
+                  <div className={`${(esDiaBloqueado || !estaAbierto) ? 'bg-secondary' : 'bg-dark'} text-white p-3 d-flex align-items-center gap-3`}>
+                    <span className="fs-2 fw-black">{dateObj.getDate()}</span>
+                    <div className="lh-1">
+                      <div className="small fw-bold text-uppercase opacity-50">{dateObj.toLocaleDateString('es', { month: 'short' })}</div>
+                      <div className="small fw-bold text-capitalize">{dateObj.toLocaleDateString('es', { weekday: 'long' })}</div>
+                    </div>
+                    {esDiaBloqueado && estaAbierto && (
+                      <div className="ms-auto badge bg-light text-dark opacity-75">BLOQUEADO</div>
+                    )}
+                  </div>
+                  
+                  <div className="list-group list-group-flush">
+                    {dia.servicios.map((serv, idx) => {
+                      const isSelected = seleccionados.has(`${serv.Fecha}|${serv.Jornada}`);
+                      const interactuable = estaAbierto && !esDiaBloqueado;
+
+                      return (
+                        <div 
+                          key={idx}
+                          onClick={() => toggleServicio(serv.Fecha, serv.Jornada)}
+                          className={`list-group-item d-flex align-items-center justify-content-between p-3 border-0 ${isSelected ? 'bg-success bg-opacity-10' : ''}`}
+                          style={{ 
+                            cursor: interactuable ? 'pointer' : 'default',
+                            borderLeft: isSelected ? '6px solid #198754' : '6px solid transparent' 
+                          }}
+                        >
+                          <div className="d-flex align-items-center gap-3">
+                            <div className={`rounded-circle d-flex align-items-center justify-content-center shadow-sm ${isSelected ? 'bg-success text-white' : 'bg-light border'}`} style={{ width: '36px', height: '36px' }}>
+                              <i className={`bi ${isSelected ? 'bi-check-lg' : 'bi-dash-lg'} fs-5`}></i>
+                            </div>
+                            <div>
+                              <div className="fw-black text-black" style={{ fontSize: '0.95rem' }}>{serv.Tipo}</div>
+                              <div className="small text-muted fw-bold"><i className="bi bi-clock me-1"></i> {serv.Jornada}</div>
+                            </div>
+                          </div>
+                          <div className="text-end">
+                            <span 
+                              className={`fw-black px-3 py-1 rounded-3 shadow-sm ${isSelected ? 'bg-success text-white' : (serv.Jornada.toUpperCase().includes('A') ? 'bg-warning text-dark' : 'bg-info text-white')}`} 
+                              style={{ fontSize: '1.5rem', letterSpacing: '-1.5px', opacity: isSelected ? 1 : 0.4 }}
+                            >
+                              {serv.Jornada.toUpperCase().includes('A') ? 'AM' : 'PM'}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {estaAbierto && (
+        <div className="fixed-bottom p-3 d-flex justify-content-center bg-white bg-opacity-75 border-top" style={{ bottom: '75px', backdropFilter: 'blur(8px)' }}>
+          <button 
+            onClick={confirmarGuardado}
+            disabled={guardando}
+            className="btn btn-dark w-100 rounded-pill fw-black py-3 shadow-lg"
+            style={{ maxWidth: '450px', backgroundColor: '#000' }}
+          >
+            {guardando ? <span className="spinner-border spinner-border-sm me-2"></span> : <i className="bi bi-cloud-upload-fill me-2"></i>}
+            GUARDAR DISPONIBILIDAD
+          </button>
+        </div>
+      )}
+
+      <style>{`
+        .fw-black { font-weight: 900 !important; }
+        .rounded-bottom-5 { border-bottom-left-radius: 35px !important; border-bottom-right-radius: 35px !important; }
+        .container { padding-bottom: ${estaAbierto ? '180px' : '100px'}; }
+      `}</style>
     </div>
   );
 }
