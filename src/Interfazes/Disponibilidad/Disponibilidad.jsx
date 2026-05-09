@@ -1,231 +1,214 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../../Supabase/cliente";
+import Swal from "sweetalert2";
 
-export default function Disponibilidad() {
-  const [diasDisponibles, setDiasDisponibles] = useState([]);
-  const [disponibilidadesUser, setDisponibilidadesUser] = useState([]);
+export default function DisponibilidadCompacta() {
+  const [serviciosAgrupados, setServiciosAgrupados] = useState([]);
+  const [seleccionados, setSeleccionados] = useState(new Set());
   const [reglasAcceso, setReglasAcceso] = useState([]);
-  const [carga, setCarga] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [guardando, setGuardando] = useState(false);
   const navigate = useNavigate();
 
-  // 1. CARGA INICIAL CON LÓGICA DE VISIBILIDAD (DÍA 27)
-  const inicializar = async () => {
+  const inicializar = useCallback(async () => {
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData?.user) return;
-      const userId = userData.user.id;
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
       const hoy = new Date();
-      const hoyStr = hoy.toISOString().split("T")[0];
-      const diaDelMes = hoy.getDate();
+      const diaActual = hoy.getDate();
       
-      // Si es 27 o más, vemos hasta el fin del PRÓXIMO mes
-      let fechaFinBusqueda;
-      if (diaDelMes >= 25) {
-        fechaFinBusqueda = new Date(hoy.getFullYear(), hoy.getMonth() + 2, 0).toISOString().split('T')[0];
-      } else {
-        fechaFinBusqueda = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).toISOString().split('T')[0];
-      }
+      let fechaInicio = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+      if (diaActual >= 27) fechaInicio = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 1);
+      
+      const fechaFin = new Date(fechaInicio.getFullYear(), fechaInicio.getMonth() + 1, 0);
+      const inicioStr = fechaInicio.toISOString().split('T')[0];
+      const finStr = fechaFin.toISOString().split('T')[0];
 
-      // A. Servicios (Agrupados por fecha para evitar repetidos)
-      const { data: servData } = await supabase
-        .from("Servicio")
-        .select("Id, Fecha")
-        .gte("Fecha", hoyStr)
-        .lte("Fecha", fechaFinBusqueda)
-        .order("Fecha", { ascending: true });
+      const [servResp, reglResp, userResp] = await Promise.all([
+        supabase.from("Servicio").select("Fecha, Jornada, Tipo, Comentario").gte("Fecha", inicioStr).lte("Fecha", finStr).order("Fecha"),
+        supabase.from("Control_Disponibilidad").select("*"),
+        supabase.from("Disponbilidad").select("Fecha, Jornada").eq("IdServidor", user.id).gte("Fecha", inicioStr)
+      ]);
 
-      const fechasUnicas = [];
-      const mapaFechas = new Set();
-      (servData || []).forEach(item => {
-        if (!mapaFechas.has(item.Fecha)) {
-          mapaFechas.add(item.Fecha);
-          fechasUnicas.push(item);
-        }
+      const grupos = {};
+      (servResp.data || []).forEach(s => {
+        const bloqueGeneral = s.Jornada?.toUpperCase().includes('A') ? 'AM' : 'PM';
+        const key = `${s.Fecha}|${bloqueGeneral}`;
+        if (!grupos[key]) grupos[key] = { fecha: s.Fecha, bloque: bloqueGeneral, items: [] };
+        grupos[key].items.push({ jornadaReal: s.Jornada, tipo: s.Tipo, comentario: s.Comentario });
       });
-      setDiasDisponibles(fechasUnicas);
 
-      // B. Reglas de Control (Mayúsculas según tu SQL)
-      const { data: reglas } = await supabase.from("Control_Disponibilidad").select("*");
-      setReglasAcceso(reglas || []);
-
-      // C. Lo que el usuario ya marcó
-      const { data: miDispo } = await supabase
-        .from("Disponbilidad")
-        .select("Fecha")
-        .eq("IdServidor", userId)
-        .gte("Fecha", hoyStr);
-
-      setDisponibilidadesUser(miDispo?.map(d => d.Fecha) || []);
-
-    } catch (e) {
-      console.error("Error al inicializar:", e);
-    } finally {
-      setCarga(true);
-    }
-  };
-
-  // 2. LÓGICA DE VALIDACIÓN (DÍA ESPECÍFICO O MES GLOBAL)
-  const verificarBloqueo = (servicio) => {
-    const hoyStr = new Date().toISOString().split('T')[0];
-    const fechaServicioStr = servicio.Fecha;
-
-    // A. ¿Hay regla para este día exacto?
-    const reglaPorDia = reglasAcceso.find(r => r.Fecha_especifica === fechaServicioStr);
-
-    if (reglaPorDia) {
-      const estaAbierto = hoyStr >= reglaPorDia.Fecha_apertura && hoyStr <= reglaPorDia.Fecha_cierre;
-      return !estaAbierto; 
-    }
-
-    // B. ¿Hay regla para el mes completo?
-    const fechaObj = new Date(fechaServicioStr + "T00:00:00");
-    const mesS = (fechaObj.getMonth() + 1).toString();
-    const anioS = fechaObj.getFullYear().toString();
-
-    const reglaGlobal = reglasAcceso.find(r => 
-      String(r.Mes) === mesS && String(r.Año) === anioS && !r.Fecha_especifica
-    );
-
-    if (reglaGlobal) {
-      const estaAbiertoGlobal = hoyStr >= reglaGlobal.Fecha_apertura && hoyStr <= reglaGlobal.Fecha_cierre;
-      return !estaAbiertoGlobal;
-    }
-
-    return true; // Bloqueado si no hay nada configurado
-  };
-
-  // 3. ACCIÓN DEL SWITCH (SOLO SI NO ESTÁ BLOQUEADO)
-  const handleToggle = async (servicio) => {
-    if (verificarBloqueo(servicio)) return;
-
-    try {
-      const { data: userData } = await supabase.auth.getUser();
-      const userId = userData.user.id;
-      const yaRegistrado = disponibilidadesUser.includes(servicio.Fecha);
-
-      if (yaRegistrado) {
-        setDisponibilidadesUser(prev => prev.filter(f => f !== servicio.Fecha));
-        await supabase.from("Disponbilidad").delete().eq("IdServidor", userId).eq("Fecha", servicio.Fecha);
-      } else {
-        setDisponibilidadesUser(prev => [...prev, servicio.Fecha]);
-        await supabase.from("Disponbilidad").insert([{ IdServidor: userId, Fecha: servicio.Fecha }]);
-      }
+      setServiciosAgrupados(Object.values(grupos));
+      setReglasAcceso(reglResp.data || []);
+      setSeleccionados(new Set(userResp.data?.map(d => `${d.Fecha}|${d.Jornada}`)));
     } catch (e) {
       console.error(e);
-      inicializar();
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const confirmarGuardado = () => {
+    Swal.fire({
+      title: 'Guardar cambios?',
+      text: `Registrarás ${seleccionados.size} turnos, una vez guardes no podras salirte, listo para la aventura ¿?`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#000000',
+      cancelButtonColor: '#6c757d',
+      confirmButtonText: 'Guardar',
+      cancelButtonText: 'Cerrar'
+    }).then((result) => {
+      if (result.isConfirmed) ejecutarGuardado();
+    });
+  };
+
+  const ejecutarGuardado = async () => {
+    setGuardando(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const hoy = new Date();
+      const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth() + (hoy.getDate() >= 27 ? 1 : 0), 1).toISOString().split('T')[0];
+      await supabase.from("Disponbilidad").delete().eq("IdServidor", user.id).gte("Fecha", inicioMes);
+      const payload = Array.from(seleccionados).map(item => {
+        const [fecha, jornada] = item.split('|');
+        return {
+          IdServidor: user.id,
+          Fecha: fecha,
+          Jornada: jornada,
+          Dia: new Date(fecha + "T00:00:00").toLocaleDateString('es', { weekday: 'long' })
+        };
+      });
+      if (payload.length > 0) {
+        const { error } = await supabase.from("Disponbilidad").insert(payload);
+        if (error) throw error;
+      }
+      Swal.fire({ icon: 'success', title: '¡Guardado!', showConfirmButton: false, timer: 1500 });
+      setTimeout(() => navigate(-1), 1500);
+    } catch (e) {
+      Swal.fire('Error', e.message, 'error');
+    } finally {
+      setGuardando(false);
     }
   };
 
-  useEffect(() => { inicializar(); }, []);
+  const toggleSeleccion = (key) => {
+    setSeleccionados(prev => {
+      const nuevo = new Set(prev);
+      if (nuevo.has(key)) nuevo.delete(key);
+      else nuevo.add(key);
+      return nuevo;
+    });
+  };
 
-  if (!carga) return <div className="text-center py-5 mt-5"><div className="spinner-border text-primary"></div></div>;
+  useEffect(() => { inicializar(); }, [inicializar]);
+
+  if (loading) return <div className="min-vh-100 d-flex align-items-center justify-content-center bg-white"><div className="spinner-border text-dark"></div></div>;
 
   return (
-    <div className="min-vh-100 bg-light pb-5">
-      {/* Header Estilizado */}
-      <div className="bg-dark text-white p-4 pb-5 rounded-bottom-5 shadow-lg text-center">
-        <div className="d-flex align-items-center gap-3 mb-4 text-start">
-          <button className="btn btn-outline-light rounded-circle border-0" onClick={() => navigate(-1)}>
-            <i className="bi bi-arrow-left fs-4"></i>
-          </button>
-          <span className="fw-bold text-uppercase small" style={{ letterSpacing: '1px' }}>Servicio</span>
-        </div>
-        <div className="bg-primary-subtle d-inline-block p-3 rounded-circle mb-3 shadow-sm">
-          <i className="bi bi-calendar-check text-primary fs-2"></i>
-        </div>
-        <h2 className="fw-bold mb-1">Disponibilidad</h2>
-        <p className="small opacity-75">Confirma los días que puedes apoyar.</p>
-      </div>
+    <div className="min-vh-100 bg-light">
+      {/* HEADER COMPACTO - SIN ESPACIOS EXTRAS ARRIBA */}
+      {/* HEADER ACTUALIZADO Y COMPACTO */}
+<div className="bg-white border-bottom shadow-sm p-3 pb-4 rounded-bottom-5">
+  <div className="d-flex justify-content-between align-items-center mb-3">
+    {/* Botón de Recargar/Regresar */}
+    <div 
+      className="bg-light p-2 rounded-3 shadow-sm" 
+      onClick={() => window.location.reload()} 
+      style={{ cursor: 'pointer', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+    >
+      <i className="bi bi-arrow-clockwise text-dark fs-5"></i>
+    </div>
 
-      <div className="container" style={{ marginTop: '-35px' }}>
-        <div className="card border-0 shadow-lg rounded-5">
-          <div className="card-body p-3">
-            
-            {diasDisponibles.length === 0 ? (
-              <div className="text-center py-5 opacity-50">
-                <i className="bi bi-calendar-x fs-1 d-block mb-2"></i>
-                <p>No hay servicios disponibles.</p>
-              </div>
-            ) : (
-              <div className="d-flex flex-column gap-2">
-                {diasDisponibles.map((servicio, index) => {
-                  const yaRegistrado = disponibilidadesUser.includes(servicio.Fecha);
-                  const bloqueado = verificarBloqueo(servicio);
-                  const dateObj = new Date(servicio.Fecha + "T00:00:00");
+    {/* Badge de Conteo */}
+    <span className="badge rounded-pill bg-dark py-2 px-3 fw-bold shadow-sm" style={{ fontSize: '11px', letterSpacing: '0.5px' }}>
+      {seleccionados.size} MARCADO(S)
+    </span>
+  </div>
+  
+  <div className="text-center">
+    {/* Título Negro Sólido y Compacto */}
+    <h2 className="fw-black text-black mb-0" style={{ fontSize: '1.8rem', letterSpacing: '-1.5px' }}>
+      Mi Disponibilidad
+    </h2>
+    <p className="small text-muted fw-bold mb-0 opacity-75">Tus próximos pasos en el servicio</p>
+  </div>
+</div>
 
-                  const mostrarSeparador = index === 0 || 
-                    new Date(diasDisponibles[index - 1].Fecha + "T00:00:00").getMonth() !== dateObj.getMonth();
+      {/* CONTENEDOR CON MARGEN SUPERIOR MÍNIMO */}
+      <div className="container px-3 mt-3">
+        <div className="row g-2">
+          {serviciosAgrupados.map((grupo) => {
+            const key = `${grupo.fecha}|${grupo.bloque}`;
+            const isSelected = seleccionados.has(key);
+            const dateObj = new Date(grupo.fecha + "T00:00:00");
 
-                  return (
-                    <div key={servicio.Fecha}>
-                      {mostrarSeparador && (
-                        <div className="text-center my-3">
-                          <span className="badge bg-primary bg-opacity-10 text-primary text-uppercase px-3 py-2 rounded-pill" style={{fontSize: '10px', letterSpacing: '1px'}}>
-                            {dateObj.toLocaleDateString("es-ES", { month: 'long', year: 'numeric' })}
-                          </span>
-                        </div>
-                      )}
+            return (
+              <div className="col-12 col-md-6" key={key}>
+                <div 
+                  onClick={() => toggleSeleccion(key)}
+                  className={`card border-0 rounded-3 transition-all ${isSelected ? 'bg-success text-white shadow' : 'bg-white text-dark shadow-sm'}`}
+                  style={{ cursor: 'pointer' }}
+                >
+                  <div className="card-body py-2 px-3 d-flex gap-3">
+                    <div className="text-center border-end pe-3 d-flex flex-column justify-content-center" style={{ minWidth: '55px' }}>
+                      <div className="fw-black text-black fs-4" style={{lineHeight: 1}}>{dateObj.getDate()}</div>
+                      <div className="small text-capitalize fw-bold" style={{fontSize: '0.7rem'}}>{dateObj.toLocaleDateString('es', { weekday: 'short' })}</div>
+                      <span className={`badge ${grupo.bloque === 'AM' ? 'bg-warning text-dark' : 'bg-info text-white'}`} style={{fontSize: '0.6rem'}}>
+                           {grupo.bloque}
+                        </span>
+                    </div>
 
-                      <div
-                        onClick={() => handleToggle(servicio)}
-                        className={`d-flex align-items-center justify-content-between p-3 rounded-4 border-2 transition-all ${
-                          bloqueado 
-                            ? (yaRegistrado ? 'bg-success-subtle border-success opacity-75' : 'bg-secondary-subtle border-transparent opacity-50') 
-                            : (yaRegistrado ? 'bg-success-subtle border-success shadow-sm' : 'bg-light border-transparent')
-                        }`}
-                        style={{ cursor: bloqueado ? 'not-allowed' : 'pointer' }}
-                      >
-                        <div className="d-flex align-items-center gap-3">
-                          {/* Mini Calendario */}
-                          <div className={`text-center rounded-4 d-flex flex-column align-items-center justify-content-center shadow-sm ${
-                            yaRegistrado ? 'bg-success text-white' : (bloqueado ? 'bg-secondary text-white' : 'bg-white text-primary border')
-                          }`} style={{ width: '55px', height: '58px' }}>
-                            <span className="text-uppercase fw-bold" style={{ fontSize: '9px' }}>{dateObj.toLocaleDateString("es-ES", { month: 'short' })}</span>
-                            <span className="fw-bolder fs-4 leading-none">{dateObj.getDate()}</span>
+                    <div className="flex-grow-1">
+                      <div className="d-flex flex-column gap-1">
+                        {grupo.items.map((item, i) => (
+                          <div key={i} className="small">
+                            <span className="fw-black text-dark opacity-50 me-1" style={{ fontSize: '0.65rem' }}>{item.jornadaReal}:</span>
+                            <span className="fw-bold">{item.tipo}</span>
                           </div>
-
-                          <div className="text-start">
-                            <div className={`fw-bold text-capitalize ${yaRegistrado ? 'text-success' : 'text-dark'}`}>
-                              {dateObj.toLocaleDateString("es-ES", { weekday: 'long' })}
-                            </div>
-                            <small className={`fw-bold ${yaRegistrado ? 'text-success' : (bloqueado ? 'text-danger' : 'text-muted')}`}>
-                              {bloqueado ? (
-                                yaRegistrado ? (
-                                  <><i className="bi bi-check-circle-fill me-1"></i>Inscrito (Plazo Cerrado)</>
-                                ) : (
-                                  <><i className="bi bi-x-circle-fill me-1"></i>No inscrito (Plazo Cerrado)</>
-                                )
-                              ) : (
-                                yaRegistrado ? <><i className="bi bi-check-circle-fill me-1"></i>Confirmado</> : "Abierto para anotarse"
-                              )}
-                            </small>
-                          </div>
-                        </div>
-
-                        {/* Switch o Candado */}
-                        <div className="ms-3">
-                          {bloqueado ? (
-                            <i className={`bi bi-lock-fill fs-4 ${yaRegistrado ? 'text-success' : 'text-secondary'}`}></i>
-                          ) : (
-                            <div className={`switch-custom ${yaRegistrado ? 'active' : ''}`}
-                              style={{ width: '50px', height: '26px', borderRadius: '50px', position: 'relative', transition: '0.3s', backgroundColor: yaRegistrado ? '#198754' : '#dee2e6', padding: '3px' }}>
-                              <div className="switch-dot shadow-sm"
-                                style={{ width: '20px', height: '20px', backgroundColor: 'white', borderRadius: '50%', position: 'absolute', transition: '0.3s', left: yaRegistrado ? '26px' : '4px' }}>
-                              </div>
-                            </div>
-                          )}
-                        </div>
+                        ))}
                       </div>
                     </div>
-                  );
-                })}
+                  </div>
+                </div>
               </div>
-            )}
-          </div>
+            );
+          })}
         </div>
       </div>
+
+      {/* BOTÓN FLOTANTE NEGRO */}
+      <div className="fixed-bottom p-3 d-flex justify-content-center" style={{ bottom: '75px' }}>
+        <button 
+          onClick={confirmarGuardado}
+          disabled={guardando}
+          className="btn btn-dark w-100 rounded-pill fw-black py-3 shadow-lg"
+          style={{ maxWidth: '400px', backgroundColor: '#000', border: 'none' }}
+        >
+          {guardando ? <span className="spinner-border spinner-border-sm me-2"></span> : null}
+          GUARDAR DISPONIBILIDAD
+        </button>
+      </div>
+
+      <style>{`
+        .bg-light { background-color: #f8f9fa !important; }
+        .fw-black { font-weight: 900 !important; }
+        .text-black { color: #000 !important; }
+        .container { padding-bottom: 160px; }
+        .transition-all { transition: transform 0.1s ease-in-out; }
+        .transition-all:active { transform: scale(0.97); }
+        .animate-pop { animation: pop 0.2s ease-out; }
+        @keyframes pop { from { scale: 0.5; } to { scale: 1; } }
+        .rounded-bottom-5 { 
+          border-bottom-left-radius: 30px !important; 
+          border-bottom-right-radius: 30px !important; 
+        }
+        .fw-black { font-weight: 900 !important; }
+        .text-black { color: #000 !important; }
+      `}</style>
+
     </div>
   );
 }
