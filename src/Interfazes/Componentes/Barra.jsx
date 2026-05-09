@@ -79,15 +79,15 @@ export default function Layout() {
             <>
               <MenuLink to="/Homeadmin" icon="🏠" label="Inicio" />
               {/* CAMBIO: Ahora los servicios se ven en el Calendario de Eventos */}
-              <MenuLink to="/CalendarioServicios" icon="🎯" label="Agenda" />
               <MenuLink to="/Servicios" icon="📅" label="Servicios" />
               <MenuLink to="/Servidores" icon="👥" label="Staff" />
+              <MenuLink to="/Disponibilidad" icon="🎯" label="Turnos" />
               <MenuLink to="/AereasAdmins" icon="📂" label="Áreas" />
             </>
           ) : (
             <>
               <MenuLink to="/Home" icon="🏠" label="Inicio" />
-              <MenuLink to="/Disponibilidad" icon="📅" label="Turnos" />
+              <MenuLink to="/Disponibilidad" icon="🎯" label="Turnos" />
               <MenuLink to="/Aereas" icon="📂" label="Mis Áreas" />
             </>
           )}
