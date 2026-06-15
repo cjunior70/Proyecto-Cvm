@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { supabase } from "../../../Supabase/cliente";
 import Swal from "sweetalert2";
 
@@ -6,9 +6,11 @@ export default function AreasAdmin() {
   const [areas, setAreas] = useState([]);
   const [nombre, setNombre] = useState("");
   const [descripcion, setDescripcion] = useState("");
+  const [orden, setOrden] = useState(""); // Estado para el input (lo mantengo en minúscula en JS por convención)
   const [archivo, setArchivo] = useState(null);
   const [editandoId, setEditandoId] = useState(null);
   const [cargando, setCargando] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [mostrarModal, setMostrarModal] = useState(false);
 
   useEffect(() => {
@@ -16,60 +18,59 @@ export default function AreasAdmin() {
   }, []);
 
   const cargarAreas = async () => {
-    const { data } = await supabase.from("Aerea").select("*").order("Nombre");
-    setAreas(data || []);
-  };
+    setLoading(true);
+    // 🔥 AJUSTE DE LÓGICA: Usamos "Orden" (con O mayúscula) tal cual tu DB.
+    // Ordenamos ascendentemente y ponemos los nulos al final.
+    const { data, error } = await supabase
+      .from("vista_areas_resumen") // Asumimos que la vista también expone "Orden" con mayúscula
+      .select("*")
+      .order("Orden", { ascending: true, nullsFirst: false }); // ✅ O Mayúscula
 
-  const toast = (title, icon = "success") => {
-    Swal.fire({
-      title,
-      icon,
-      toast: true,
-      position: "top-end",
-      showConfirmButton: false,
-      timer: 2000,
-    });
+    if (error) {
+      console.error("Error cargando áreas:", error);
+    }
+    setAreas(data || []);
+    setLoading(false);
   };
 
   const subirImagen = async (file) => {
     try {
-      const fileExt = file.name.split(".").pop();
-      const fileName = `area_${Date.now()}.${fileExt}`;
-      const { error: uploadError } = await supabase.storage
-        .from("Imagen")
-        .upload(fileName, file);
-
-      if (uploadError) throw uploadError;
-
-      const { data } = supabase.storage.from("Imagen").getPublicUrl(fileName);
-      return data.publicUrl;
-    } catch (error) {
-      console.error("Error Storage:", error);
-      return null;
+      const fileName = `area_${Date.now()}`;
+      const { error } = await supabase.storage.from("Imagen").upload(fileName, file);
+      if (error) throw error;
+      return supabase.storage.from("Imagen").getPublicUrl(fileName).data.publicUrl;
+    } catch (e) { 
+      console.error("Error subiendo imagen:", e.message);
+      return null; 
     }
   };
 
   const guardarArea = async (e) => {
     e.preventDefault();
     setCargando(true);
-
     let urlFinal = null;
-    if (archivo) {
-      urlFinal = await subirImagen(archivo);
-    }
+    if (archivo) urlFinal = await subirImagen(archivo);
 
-    const datos = { Nombre: nombre, Descripcion: descripcion };
-    if (urlFinal) datos.Foto = urlFinal;
+    // Convertimos el string del input a entero. Si está vacío, por defecto 99.
+    const valorOrden = orden ? parseInt(orden, 10) : 99; 
 
     try {
+      // Definimos el objeto de datos con las claves exactas de tu DB
+      const datos = { 
+        Nombre: nombre, // Clave exacta de tu DB
+        Descripcion: descripcion, // Clave exacta de tu DB
+        Orden: valorOrden // ✅ CLAVE EXACTA DE TU DB ("Orden" con O mayúscula)
+      };
+      if (urlFinal) datos.Foto = urlFinal; // Clave exacta de tu DB
+
       if (editandoId) {
+        // Usamos la tabla física "Aerea" para inserts/updates
         await supabase.from("Aerea").update(datos).eq("Id", editandoId);
-        toast("Área actualizada");
       } else {
         await supabase.from("Aerea").insert([datos]);
-        toast("Área creada correctamente");
       }
-
+      
+      Swal.fire({ title: "¡Éxito!", text: "Guardado correctamente", icon: "success", timer: 1500, showConfirmButton: false });
       setMostrarModal(false);
       limpiarFormulario();
       cargarAreas();
@@ -80,187 +81,172 @@ export default function AreasAdmin() {
     }
   };
 
+  const eliminarArea = async (area) => {
+    const res = await Swal.fire({
+      title: "¿Eliminar?",
+      text: "Se borrará el registro y su imagen.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Sí, borrar",
+      confirmButtonColor: "#d33"
+    });
+
+    if (res.isConfirmed) {
+      Swal.fire({ title: "Eliminando...", allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+      try {
+        if (area.Foto) {
+          const nombreArchivo = area.Foto.split("/").pop();
+          await supabase.storage.from("Imagen").remove([nombreArchivo]);
+        }
+        await supabase.from("Aerea").delete().eq("Id", area.Id);
+        Swal.fire({ title: "¡Eliminado!", text: "Borrado correctamente.", icon: "success", timer: 1500, showConfirmButton: false });
+        cargarAreas();
+      } catch (error) {
+        Swal.fire("Error", "No se pudo eliminar.", "error");
+      }
+    }
+  };
+
   const prepararEdicion = (a) => {
     setEditandoId(a.Id);
     setNombre(a.Nombre || "");
     setDescripcion(a.Descripcion || "");
+    // 🔥 AJUSTE: Accedemos a a.Orden (con O mayúscula) que viene de la DB.
+    // Convertimos null/99 predeterminado a string vacío para el input.
+    setOrden(a.Orden !== null && a.Orden !== 99 ? a.Orden.toString() : ""); 
+    setArchivo(null);
     setMostrarModal(true);
   };
 
-  const eliminarArea = async (id) => {
-    const res = await Swal.fire({
-      title: "¿Eliminar área?",
-      text: "Esta acción no se puede deshacer",
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonColor: "#d33",
-      confirmButtonText: "Sí, borrar",
-      cancelButtonText: "Cancelar",
-      borderRadius: "15px",
-    });
-
-    if (res.isConfirmed) {
-      await supabase.from("Aerea").delete().eq("Id", id);
-      toast("Área eliminada", "info");
-      cargarAreas();
-    }
-  };
-
   const limpiarFormulario = () => {
-    setNombre("");
-    setDescripcion("");
-    setArchivo(null);
-    setEditandoId(null);
+    setNombre(""); setDescripcion(""); setArchivo(null); setEditandoId(null);
+    setOrden(""); 
   };
 
   return (
-    <div className="min-vh-100 bg-light pb-5">
-      {/* HEADER PREMIUM DARK */}
-      <div className="bg-dark text-white p-4 pb-5 rounded-bottom-5 shadow-lg">
-        <div className="d-flex align-items-center gap-3 mb-4">
-          <button className="btn btn-outline-light rounded-circle border-0" onClick={() => navigate(-1)}>
-            <i className="bi bi-arrow-left fs-4"></i>
-          </button>
-          <span className="fw-bold tracking-tight text-uppercase small" style={{ letterSpacing: '1px' }}>
-            Configuración del Sistema
-          </span>
-        </div>
-        
-        <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
-          <div>
-            <h2 className="fw-bold mb-0">Gestión de Áreas</h2>
-            <p className="opacity-75 small mb-0">Administra los espacios y departamentos de servicio.</p>
-          </div>
-          <button 
-            className="btn btn-primary rounded-pill px-4 py-2 fw-bold shadow-lg border-0 d-flex align-items-center justify-content-center gap-2"
-            style={{ background: 'linear-gradient(45deg, #0d6efd, #0dCAF0)' }}
-            onClick={() => { limpiarFormulario(); setMostrarModal(true); }}
-          >
-            <i className="bi bi-plus-lg fs-5"></i> Nueva Área
-          </button>
-        </div>
+    <div className="container py-4" style={{ paddingBottom: '80px' }}>
+      <div className="d-flex justify-content-between align-items-center mb-4 sticky-top py-2" style={{ backgroundColor: '#f8f9fa', zIndex: 10 }}>
+        <h4 className="fw-bold m-0">Gestión de Áreas</h4>
+        <button className="btn btn-primary btn-sm rounded-pill px-3 shadow-sm" onClick={() => { limpiarFormulario(); setMostrarModal(true); }}>+ Nueva</button>
       </div>
 
-      <div className="container" style={{ marginTop: '-25px' }}>
-        {/* INDICADOR DE TOTALES */}
-        <div className="card border-0 shadow-sm rounded-pill py-2 px-4 mb-4 bg-white d-inline-block">
-          <small className="fw-bold text-primary">
-            <i className="bi bi-grid-fill me-2"></i>
-            {areas.length} Áreas configuradas
-          </small>
-        </div>
-
-        {/* GRILLA DE ÁREAS */}
-        {areas.length === 0 ? (
-          <div className="card border-0 shadow-sm rounded-5 py-5 text-center bg-white">
-            <div className="py-4">
-              <i className="bi bi-layers text-muted opacity-25" style={{ fontSize: '5rem' }}></i>
-              <h5 className="mt-3 fw-bold text-dark">No hay áreas registradas</h5>
-              <p className="text-muted">Comienza creando una nueva área para tus servicios.</p>
+      {loading ? (
+        <div className="row row-cols-2 g-2 placeholder-glow">
+          {[1,2,3,4,5,6,7,8].map(i => (
+            <div key={i} className="col">
+              <div className="card h-100 border-0 shadow-sm rounded-4 p-2">
+                <div className="placeholder rounded-3 w-100" style={{ height: "110px" }}></div>
+                <div className="placeholder col-8 mt-3 rounded"></div>
+              </div>
             </div>
-          </div>
-        ) : (
-          <div className="row g-4">
-            {areas.map((a) => (
-              <div key={a.Id} className="col-12 col-md-6 col-lg-4">
-                <div className="card border-0 shadow-sm rounded-5 overflow-hidden h-100 card-hover-premium">
-                  {/* IMAGEN CON OVERLAY */}
-                  <div className="position-relative overflow-hidden" style={{ height: "180px" }}>
-                    <img 
-                      src={a.Foto || "https://images.unsplash.com/photo-1507038732158-5d2bb34d7426?q=80&w=500&auto=format&fit=crop"} 
-                      className="card-img-top w-100 h-100" 
-                      style={{ objectFit: "cover" }} 
-                    />
-                    <div className="position-absolute top-0 start-0 w-100 h-100 bg-gradient-card"></div>
-                    
-                    <div className="position-absolute top-0 end-0 m-3">
-                      <button className="btn btn-glass-dark rounded-circle shadow-sm" onClick={() => prepararEdicion(a)}>
-                        <i className="bi bi-pencil-square text-white"></i>
-                      </button>
-                    </div>
-                  </div>
+          ))}
+        </div>
+      ) : (
+        <div className="row row-cols-2 g-2">
+          {areas.map((a) => (
+            <div key={a.Id} className="col">
+              <div className="card h-100 border-0 shadow-sm rounded-4 overflow-hidden position-relative flex-column d-flex">
+                
+                {/* 🔥 Badge visual del orden (Accedemos a a.Orden) */}
+                <span className="position-absolute top-0 end-0 badge rounded-pill bg-light text-dark m-1 shadow-sm border border-slate-100" style={{ fontSize: '9px', zIndex: 1 }}>
+                  Pos: {a.Orden}
+                </span>
 
-                  <div className="card-body p-4 d-flex flex-column">
-                    <h5 className="fw-bold text-dark mb-2">{a.Nombre}</h5>
-                    <p className="text-muted small mb-4 flex-grow-1 line-clamp-2">
-                      {a.Descripcion || "Sin descripción disponible para este espacio."}
-                    </p>
-                    
-                    <div className="d-flex justify-content-between align-items-center mt-3 pt-3 border-top">
-                      <button 
-                        className="btn btn-link text-danger p-0 text-decoration-none small fw-bold d-flex align-items-center gap-1"
-                        onClick={() => eliminarArea(a.Id)}
-                      >
-                        <i className="bi bi-trash3"></i> Eliminar
-                      </button>
-                      <button className="btn btn-outline-primary btn-sm rounded-pill px-4 fw-bold" onClick={() => prepararEdicion(a)}>
-                        Editar
-                      </button>
-                    </div>
+                <div style={{ height: "110px", backgroundColor: "#f8f9fa" }}>
+                  <img src={a.Foto || "https://images.unsplash.com/photo-1507038732158-5d2bb34d7426?q=80&w=500"} className="w-100 h-100" style={{ objectFit: "contain", padding: "8px" }} alt={a.Nombre} />
+                </div>
+                <div className="card-body p-2 flex-grow-1 d-flex flex-column">
+                  <h6 className="fw-bold mb-1 text-truncate" style={{ fontSize: '13px', color: '#1a293a' }}>{a.Nombre}</h6>
+                  <p className="text-muted mb-2 flex-grow-1" style={{ fontSize: '10px', height: '30px', overflow: 'hidden', lineHeight: '1.4' }}>{a.Descripcion || 'Sin descripción.'}</p>
+                  
+                  <div className="d-flex flex-column gap-1 mb-2 border-top border-slate-100 pt-1">
+                    <div className="d-flex justify-content-between align-items-center"><small className="text-muted" style={{fontSize: '9px'}}>Servidores:</small><small className="fw-bold text-primary" style={{fontSize: '10px'}}>{a.TotalServidores || 0}</small></div>
+                    <div className="d-flex justify-content-between align-items-center"><small className="text-muted" style={{fontSize: '9px'}}>Servicios mes:</small><small className="fw-bold text-success" style={{fontSize: '10px'}}>{a.TotalServicios || 0}</small></div>
+                  </div>
+                  
+                  <div className="d-flex gap-1 mt-auto">
+                    <button className="btn btn-outline-primary btn-sm w-100 py-1" style={{ fontSize: '10px' }} onClick={() => prepararEdicion(a)}>Editar</button>
+                    <button className="btn btn-outline-danger btn-sm w-100 py-1" style={{ fontSize: '10px' }} onClick={() => eliminarArea(a)}>Borrar</button>
                   </div>
                 </div>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
+            </div>
+          ))}
+        </div>
+      )}
 
-      {/* MODAL CON GLASSMORPHISM PREMIUM */}
       {mostrarModal && (
-        <div className="modal fade show d-block" style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(10px)" }}>
+        <div className="modal fade show d-block" style={{ background: "rgba(0,0,0,0.6)", zIndex: 1050 }}>
           <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content rounded-5 border-0 shadow-2xl overflow-hidden animate__animated animate__fadeInUp">
-              
-              <div className="bg-dark p-4 text-white border-0 d-flex justify-content-between align-items-center">
-                <h5 className="fw-bold m-0">
-                  {editandoId ? "🔧 Configurar Área" : "✨ Crear Nueva Área"}
-                </h5>
-                <button type="button" className="btn-close btn-close-white shadow-none" onClick={() => setMostrarModal(false)}></button>
+            <div className="modal-content border-0 shadow-lg rounded-4 p-4">
+              <div className="d-flex justify-content-between mb-3 align-items-center">
+                <h5 className="fw-bold m-0 text-slate-800">{editandoId ? "Editar Área" : "Nueva Área"}</h5>
+                <button className="btn-close" onClick={() => setMostrarModal(false)}></button>
+              </div>
+
+              {/* 🔥 MENSAJE INFORMATIVO DE EXPLICACIÓN (Mismo que antes) */}
+              <div className="alert alert-info py-2 px-3 mb-3 border-0 rounded-3 shadow-sm d-flex align-items-center gap-2" style={{ fontSize: '11px', color: '#1d4ed8' }}>
+                <span style={{fontSize: '18px'}}>💡</span>
+                <div>
+                  <p className="m-0 font-medium"><b>Relevancia (Prioridad)</b></p>
+                  {editandoId ? (
+                    <p className="m-0 text-slate-600">Al **editar**, cambiar el número de prioridad afecta su posición horizontal en los flyers de cronograma. Un número más bajo (ej. 1) aparece primero que uno más alto (ej. 10).</p>
+                  ) : (
+                    <p className="m-0 text-slate-600">Al **crear**, asigna un número para definir su importancia secuencial. Si lo dejas vacío, el sistema lo pondrá al final por defecto (Posición 99).</p>
+                  )}
+                </div>
               </div>
 
               <form onSubmit={guardarArea}>
-                <div className="modal-body p-4 bg-white">
-                  <div className="mb-4 text-center bg-light p-3 rounded-5 border-dashed">
-                    <i className="bi bi-image-fill text-primary fs-1 opacity-25"></i>
-                    <p className="small text-muted mb-0">Sube una foto representativa</p>
-                    <input type="file" className="form-control form-control-sm mt-2 rounded-pill" accept="image/*" onChange={e => setArchivo(e.target.files[0])} />
-                  </div>
+                <div className="mb-2">
+                  <label className="form-label small fw-bold text-slate-600 m-0">Nombre del Área <span className="text-danger">*</span></label>
+                  <input type="text" className="form-control" value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Ej. Sonido Consola, VJ" required style={{fontSize: '13px'}}/>
+                </div>
 
-                  <div className="mb-3">
-                    <label className="small fw-bold text-primary text-uppercase mb-2 d-block" style={{fontSize: '10px'}}>Nombre del Área</label>
-                    <input type="text" className="form-control rounded-4 bg-light border-0 py-2 shadow-sm" value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Ej: Sonido, Alabanza..." required />
-                  </div>
+                <div className="mb-2">
+                  <label className="form-label small fw-bold text-slate-600 m-0">Descripción (Opcional)</label>
+                  <textarea className="form-control" value={descripcion} onChange={e => setDescripcion(e.target.value)} placeholder="Breve descripción de funciones..." style={{fontSize: '13px', height: '60px'}}></textarea>
+                </div>
 
-                  <div className="mb-0">
-                    <label className="small fw-bold text-secondary text-uppercase mb-2 d-block" style={{fontSize: '10px'}}>Descripción Breve</label>
-                    <textarea className="form-control rounded-4 bg-light border-0 shadow-sm" rows="3" value={descripcion} onChange={e => setDescripcion(e.target.value)} placeholder="¿De qué se encarga esta área?"></textarea>
+                {/* 🔥 INPUT PARA EL ORDEN (Type number para bigint) */}
+                <div className="mb-3">
+                  <label className="form-label small fw-bold text-slate-600 m-0">Orden / Prioridad (Prioridad: 1=Alta, 99=Baja)</label>
+                  <div className="input-group">
+                    <span className="input-group-text bg-light text-muted border-slate-200" style={{fontSize: '13px'}}>#</span>
+                    <input 
+                      type="number" 
+                      className="form-control" 
+                      value={orden} 
+                      onChange={e => setOrden(e.target.value)} 
+                      placeholder="Ej. 1, 2, 10..." 
+                      min="1"
+                      // bigint aguanta mucho más, pero limitamos a 999 para UX
+                      max="999" 
+                      style={{fontSize: '13px'}}
+                    />
                   </div>
                 </div>
 
-                <div className="modal-footer border-0 p-4 pt-0 bg-white">
-                  <button type="button" className="btn btn-light rounded-pill px-4 fw-bold text-muted border-0 me-auto" onClick={() => setMostrarModal(false)}>Cancelar</button>
-                  <button type="submit" className="btn btn-primary rounded-pill px-4 py-2 fw-bold shadow-lg border-0" style={{ background: 'linear-gradient(45deg, #0d6efd, #0dCAF0)' }} disabled={cargando}>
-                    {cargando ? (
-                      <><span className="spinner-border spinner-border-sm me-2"></span> Guardando...</>
-                    ) : "Confirmar Área"}
-                  </button>
+                <div className="mb-3">
+                  <label className="form-label small fw-bold text-slate-600 m-0">Foto o Icono del Área</label>
+                  <input type="file" className="form-control" onChange={e => setArchivo(e.target.files[0])} accept="image/*" style={{fontSize: '13px'}} />
                 </div>
+                
+                <button type="submit" className="btn btn-primary w-100 rounded-pill fw-semibold py-2" disabled={cargando} style={{fontSize: '14px'}}>
+                  {cargando ? (
+                    <>
+                      <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                      Procesando...
+                    </>
+                  ) : (
+                    <>{editandoId ? "Actualizar cambios" : "Crear nueva área 🚀"}</>
+                  )}
+                </button>
               </form>
             </div>
           </div>
         </div>
       )}
-
-      <style>{`
-        .rounded-bottom-5 { border-bottom-left-radius: 45px; border-bottom-right-radius: 45px; }
-        .bg-gradient-card { background: linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0) 50%); }
-        .btn-glass-dark { background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); border: 1px solid rgba(255,255,255,0.2); }
-        .card-hover-premium { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-        .card-hover-premium:hover { transform: translateY(-10px); box-shadow: 0 20px 40px rgba(0,0,0,0.12) !important; }
-        .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-        .border-dashed { border: 2px dashed #dee2e6; }
-        .shadow-2xl { box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4); }
-      `}</style>
     </div>
   );
 }

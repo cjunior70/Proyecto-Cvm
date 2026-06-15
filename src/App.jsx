@@ -6,8 +6,6 @@ import './App.css'
 // Importaciones existentes
 import Login from './Interfazes/Login/Login'
 import Aereas from './Interfazes/Aereas/Aereas'
-import Cronograma from './Interfazes/Cronograma/Cronograma'
-import DatosPersonales from './Interfazes/DatosPersonales/DatosPersonales'
 import Disponibilidad from './Interfazes/Disponibilidad/Disponibilidad'
 import Home from './Interfazes/Home/Home'
 import Barra from './Interfazes/Componentes/Barra'
@@ -16,7 +14,8 @@ import Servidores from './Interfazes/Servidores/Servidores'
 import AreasAdmin from './Interfazes/Aereas/AreasAdmin'
 import Homeadmin from './Interfazes/Home/Homeadmin'
 import VistaDetalleCronograma from './Interfazes/Home/VistaDetalle'
-import CalendarioServicios from './Interfazes/Home/CalendarioServicios' 
+import DetallesServicio from './Interfazes/Servicios/DetallesServicio' 
+import Reportes from './Interfazes/Reportes/Reportes'
 
 function App() {
 
@@ -44,17 +43,16 @@ function App() {
               <Route path='/Homeadmin' element={<Homeadmin/>}/>
               
               {/* Calendario y Detalle */}
-              <Route path='/CalendarioServicios' element={<CalendarioServicios/>}/>
+              <Route path='/DetallesServicio' element={<DetallesServicio/>}/>
               <Route path='/VistaDetalleCronograma' element={<VistaDetalleCronograma/>}/>
               
               {/* Configuración y Gestión */}
               <Route path='/Aereas' element={<Aereas/>}/>
               <Route path='/AereasAdmins' element={<AreasAdmin/>}/>
-              <Route path='/Cronograma' element={<Cronograma/>}/>
-              <Route path='/DatosPersonales' element={<DatosPersonales/>}/>
               <Route path='/Disponibilidad' element={<Disponibilidad/>}/>
               <Route path='/Servicios' element={<Servicios/>}/>
               <Route path='/Servidores' element={<Servidores/>}/>
+              <Route path='/Reportes' element={<Reportes/>} />
             </Route>
         </Routes>
       </BrowserRouter>

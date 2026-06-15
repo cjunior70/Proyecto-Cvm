@@ -1,347 +1,461 @@
-import { useEffect, useState } from "react";
-import { supabase } from "../../../Supabase/cliente";
-import ModalGenerarDeLosServicios from "../Componentes/ModalGenerarDeLosServicios.jsx";
+import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { obtenerServiciosAgrupados } from "../Servicios/obtenerServiciosAgrupados";
+import CardServicios from "../Componentes/CardServicios";
+import ModalCrearServicio from "../Componentes/ModalCrearServicio";
+import GeneradorInforme from "../Componentes/GeneradorInforme"; // 📸 Importación del generador
 import Swal from "sweetalert2";
+import Calendario from "../../Imagenes/Calendario.svg";
+import Localizacion from "../../Imagenes/Localizacion.svg";
+import DescargarCronograma from "../../Imagenes/DescargarCronograma.svg"; // 🖼️ Tu imagen importada
+import { supabase } from "../../../Supabase/cliente";
 
 export default function Servicios() {
-  const [servicios, setServicios] = useState([]);
-  const [aereasGenerales, setAereasGenerales] = useState([]);
+  const [cronogramas, setCronogramas] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [modalAbierto, setModalAbierto] = useState(false);
+  const [automatizando, setAutomatizando] = useState(false);
 
-  // ───── ESTADOS MODALES ─────
-  const [mostrarModalCrear, setMostrarModalCrear] = useState(false);
-  const [mostrarModalInfo, setMostrarModalInfo] = useState(false);
-  const [mostrarModal, setMostrarModal] = useState(false);
+  // 📸 Estados para el control del Flyer seleccionado al lado del día
+  const [fechaSeleccionada, setFechaSeleccionada] = useState(null);
+  const [ejecutarRenderFlyer, setEjecutarRenderFlyer] = useState(false);
 
-  // ───── ESTADOS FORMULARIO CREAR ─────
-  const [fecha, setFecha] = useState("");
-  const [tipo, setTipo] = useState("");
-  const [hora, setHora] = useState("7");
-  const [minutos, setMinutos] = useState("00");
-  const [periodo, setPeriodo] = useState("pm");
-  const [comentario, setComentario] = useState("");
-  const [aereasSeleccionadas, setAereasSeleccionadas] = useState([]);
+  const navigate = useNavigate();
 
-  // ───── ESTADOS DETALLE ─────
-  const [servicioSeleccionado, setServicioSeleccionado] = useState(null);
-  const [areasDelServicio, setAreasDelServicio] = useState([]);
-  const [cargandoAreas, setCargandoAreas] = useState(false);
-
-  // ─────────────────────────────
-  // CARGA DE DATOS
-  // ─────────────────────────────
-  const cargarServicios = async () => {
-    const hoy = new Date();
-    const diaDelMes = hoy.getDate();
-    
-    // 1. Definir el rango base (Desde el día 1 del mes actual)
-    const inicioMesActual = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
-    let fechaFinBusqueda;
-
-    // 2. Lógica condicional: Si es 28 o más, extendemos el rango hasta el fin del PRÓXIMO mes
-    if (diaDelMes >= 22) {
-      // Fin del próximo mes
-      fechaFinBusqueda = new Date(hoy.getFullYear(), hoy.getMonth() + 2, 0);
-    } else {
-      // Fin del mes actual
-      fechaFinBusqueda = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
-    }
-
-    // 3. Consultar a Supabase con el rango dinámico
-    const { data: dataServicios } = await supabase
-      .from("Servicio")
-      .select("*")
-      .gte("Fecha", inicioMesActual.toISOString().split('T')[0])
-      .lte("Fecha", fechaFinBusqueda.toISOString().split('T')[0])
-      .order("Fecha", { ascending: true });
-
-    const { data: areas } = await supabase.from("Aerea").select("*").order("Nombre");
-    
-    setAereasGenerales(areas || []);
-    setServicios(dataServicios || []);
-  };
-
-  useEffect(() => { cargarServicios(); }, []);
-
-  // ─────────────────────────────
-  // ACCIÓN: GENERAR MES (Lógica JS)
-  // ─────────────────────────────
-  const manejarGeneracion = async () => {
-    // Cerramos el modal de confirmación primero
-    setMostrarModal(false);
-
-    Swal.fire({
-      title: 'Generando Mes...',
-      text: 'Estamos procesando el cronograma completo.',
-      allowOutsideClick: false,
-      didOpen: () => { Swal.showLoading(); }
-    });
-
+  // 🚀 FUNCIÓN DE CARGA
+  const cargarData = async () => {
+    setLoading(true);
     try {
-      // Llamamos a tu archivo generadorServicios.js
-      const { data, error } = await supabase.rpc('generar_servicios_proximo_mes');
-      
-      if (data && Array.isArray(data)) {
-        for (const s of data) {
-          // Ejecutamos el match automático para cada ID
-          await supabase.rpc('generar_match_automatico', { p_servicio_id: s.Id });
-        }
-      }
+      const dataAgrupada = await obtenerServiciosAgrupados();
+      const hoy = new Date();
+      const hoyStr = hoy.toLocaleDateString("sv-SE");
 
-      // IMPORTANTE: Refrescar la interfaz
-      await cargarServicios();
+      const cronogramaFiltrado = Object.keys(dataAgrupada)
+        .filter((fechaKey) => fechaKey >= hoyStr || fechaKey === "Sin Fecha")
+        .reduce((obj, key) => {
+          obj[key] = dataAgrupada[key];
+          return obj;
+        }, {});
 
-      Swal.fire({
-        icon: 'success',
-        title: '¡Mes Generado!',
-        timer: 2000,
-        showConfirmButton: false
-      });
-
+      setCronogramas(cronogramaFiltrado);
     } catch (error) {
-      console.error(error);
-      Swal.fire('Error', 'No se pudo completar la generación.', 'error');
+      console.error("Error al cargar los servicios:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  // ─────────────────────────────
-  // ACCIÓN: CREAR SERVICIO MANUAL
-  // ─────────────────────────────
-  const crearServicio = async (e) => {
-    e.preventDefault();
-    
-    Swal.fire({
-      title: 'Guardando...',
-      allowOutsideClick: false,
-      didOpen: () => { Swal.showLoading(); }
+  useEffect(() => {
+    cargarData();
+  }, []);
+
+  // 🤖 FUNCIÓN MAESTRA: Control de Disponibilidad + Automatización mensual
+  const manejarAutomatizacionMensual = async () => {
+    const hoy = new Date();
+    const proximoMesDate = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 1);
+
+    const meses = [
+      "Enero",
+      "Febrero",
+      "Marzo",
+      "Abril",
+      "Mayo",
+      "Junio",
+      "Julio",
+      "Agosto",
+      "Septiembre",
+      "Octubre",
+      "Noviembre",
+      "Diciembre",
+    ];
+    const nombreMes = meses[proximoMesDate.getMonth()];
+    const ano = proximoMesDate.getFullYear().toString();
+
+    const hoyStr = hoy.toISOString().split("T")[0];
+
+    const { value: formValues, isConfirmed } = await Swal.fire({
+      title: "Control de Disponibilidad",
+      html: `
+        <p class="text-muted small mb-3">Antes de generar los servicios, define cuándo los servidores podrán registrar su asistencia para <b>${nombreMes} ${ano}</b>.</p>
+        
+        <div class="mb-3 text-start">
+          <label class="form-label small fw-bold" style="color: #6E4BDB;">Fecha de Apertura</label>
+          <input id="swal-apertura" type="date" class="form-control" value="${hoyStr}">
+        </div>
+        
+        <div class="mb-3 text-start">
+          <label class="form-label small fw-bold" style="color: #6E4BDB;">Fecha de Cierre</label>
+          <input id="swal-cierre" type="date" class="form-control">
+        </div>
+        
+        <div class="mb-1 text-start">
+          <label class="form-label small fw-bold" style="color: #6E4BDB;">Descripción (Opcional)</label>
+          <input id="swal-desc" type="text" class="form-control" placeholder="Ej. Disponibilidad de ${nombreMes}">
+        </div>
+      `,
+      focusConfirm: false,
+      showCancelButton: true,
+      confirmButtonText: "Siguiente 🚀",
+      cancelButtonText: "Cancelar",
+      confirmButtonColor: "#6E4BDB",
+      cancelButtonColor: "#6c757d",
+      preConfirm: () => {
+        const apertura = document.getElementById("swal-apertura").value;
+        const cierre = document.getElementById("swal-cierre").value;
+        const desc = document.getElementById("swal-desc").value;
+
+        if (!apertura || !cierre) {
+          Swal.showValidationMessage(
+            "Debes seleccionar las fechas de apertura y cierre",
+          );
+          return false;
+        }
+        if (cierre < apertura) {
+          Swal.showValidationMessage(
+            "La fecha de cierre no puede ser antes que la apertura",
+          );
+          return false;
+        }
+        return { apertura, cierre, desc };
+      },
     });
 
-    const jornada = `${hora}:${minutos} ${periodo}`;
-    
-    try {
-      const { data: nuevo, error } = await supabase
-        .from("Servicio")
-        .insert({ 
-          Fecha: fecha, 
-          Jornada: jornada, 
-          Tipo: tipo, 
-          Estado: "Pendiente", 
-          Comentario: comentario 
-        })
-        .select().single();
+    if (isConfirmed && formValues) {
+      setAutomatizando(true);
+      try {
+        Swal.fire({
+          title: "Procesando...",
+          text: "Creando apertura de disponibilidad y cronograma...",
+          allowOutsideClick: false,
+          didOpen: () => {
+            Swal.showLoading();
+          },
+        });
 
-      if (error) throw error;
+        const { error: errorControl } = await supabase
+          .from("Control_Disponibilidad")
+          .insert([
+            {
+              Mes: nombreMes,
+              Año: ano,
+              Fecha_apertura: formValues.apertura,
+              Fecha_cierre: formValues.cierre,
+              Descripcion:
+                formValues.desc ||
+                `Disponibilidad general para ${nombreMes} ${ano}`,
+            },
+          ]);
 
-      if (nuevo && aereasSeleccionadas.length > 0) {
-        const rel = aereasSeleccionadas.map(id => ({ IdServicio: nuevo.Id, IdArea: id }));
-        await supabase.from("ServicioArea").insert(rel);
+        if (errorControl)
+          throw new Error("Error al guardar el control de disponibilidad.");
+
+        const { data, error: errorRPC } = await supabase.rpc(
+          "generar_servicios_proximo_mes",
+        );
+
+        if (errorRPC) throw errorRPC;
+
+        await Swal.fire({
+          title: "¡Proceso Completado!",
+          text: "Se ha abierto el registro de disponibilidad y los servicios del próximo mes están listos.",
+          icon: "success",
+          confirmButtonColor: "#6E4BDB",
+          background: "#ffffff",
+        });
+
+        cargarData();
+      } catch (error) {
+        console.error("Error en flujo de automatización:", error);
+        Swal.fire({
+          title: "Error en el proceso",
+          text:
+            error.message ||
+            "Hubo un problemita. Revisa la consola para más detalles.",
+          icon: "error",
+          confirmButtonColor: "#DC2626",
+        });
+      } finally {
+        setAutomatizando(false);
       }
-
-      // Cerramos modal y limpiamos campos
-      setMostrarModalCrear(false);
-      setFecha(""); setTipo(""); setComentario(""); setAereasSeleccionadas([]);
-      
-      // Refrescamos la lista
-      await cargarServicios();
-
-      Swal.fire({
-        icon: 'success',
-        title: 'Servicio Creado',
-        timer: 1500,
-        showConfirmButton: false
-      });
-
-    } catch (err) {
-      Swal.fire('Error', 'Hubo un fallo al guardar.', 'error');
     }
   };
 
-  // ─────────────────────────────
-  // DETALLE
-  // ─────────────────────────────
-  const abrirDetalleServicio = async (servicio) => {
-    setServicioSeleccionado(servicio);
-    setMostrarModalInfo(true);
-    setCargandoAreas(true);
-    setAreasDelServicio([]);
+  // 📸 FUNCIÓN ACTUALIZADA: Captura la fecha pura
+  const confirmarGeneracionFlyer = async (fecha, fechaFormateada) => {
+    const confirmacion = await Swal.fire({
+      title: "¿Generar Flyer?",
+      text: `¿Deseas preparar el informe de asistencia para el día ${fechaFormateada}?`,
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: "Sí, preparar 📸",
+      cancelButtonText: "Cancelar",
+      confirmButtonColor: "#6E4BDB",
+      cancelButtonColor: "#6c757d",
+    });
 
-    const { data, error } = await supabase
-      .from("ServicioArea")
-      .select(`IdArea, Aerea ( Nombre )`)
-      .eq("IdServicio", servicio.Id);
-
-    if (!error && data) {
-      setAreasDelServicio(data.map(item => item.Aerea.Nombre));
+    if (confirmacion.isConfirmed) {
+      setFechaSeleccionada(fecha); // Guarda la fecha (Ej: "2026-06-07")
+      setEjecutarRenderFlyer(true);
     }
-    setCargandoAreas(false);
   };
-return (
-  <section className="container py-4">
-    {/* CABECERA Y ACCIONES */}
-    <div className="text-center mb-4">
-      <h4 className="fw-bold text-uppercase" style={{ letterSpacing: '2px' }}>📅 Gestión de Servicios</h4>
-      <div className="alert alert-light border-0 shadow-sm py-2 mt-3" style={{ borderRadius: '10px' }}>
-        <small className="text-secondary">
-          <i className="bi bi-info-circle-fill me-2 text-primary"></i>
-          Desde aquí puedes <strong>crear y organizar</strong> los servicios del mes.
-        </small>
-      </div>
-      <div className="d-flex justify-content-center gap-3 mt-3">
-        <button className="btn btn-dark rounded-pill px-4 shadow-sm" onClick={() => setMostrarModal(true)}>⚙ Generar</button>
-        <button className="btn btn-primary rounded-pill px-4 shadow-sm" onClick={() => setMostrarModalCrear(true)}>➕ Nuevo</button>
-      </div>
-    </div>
 
-    {/* LISTADO DE TARJETAS */}
-    <div className="row g-3">
-      {servicios.map((s) => (
-        <div key={s.Id} className="col-12 col-md-6 col-lg-4">
-          <div className="card border-0 shadow-sm hover-card h-100" onClick={() => abrirDetalleServicio(s)} style={{ cursor: "pointer", borderRadius: '15px' }}>
-            <div className="card-body">
-              <div className="d-flex justify-content-between align-items-center mb-2">
-                <h6 className="fw-bold m-0">{s.Tipo}</h6>
-                <span className={`badge rounded-pill ${s.Estado === "Completado" ? "bg-success" : "bg-warning text-dark"}`}>{s.Estado}</span>
-              </div>
-              <div className="small text-muted">
-                <div><i className="bi bi-calendar3 me-2"></i>{s.Fecha}</div>
-                <div><i className="bi bi-clock me-2"></i>{s.Jornada}</div>
-              </div>
+  const formatearFechaConDia = (fechaStr) => {
+    if (!fechaStr || fechaStr.includes("Sin Fecha")) return fechaStr;
+    const parts = fechaStr.split("-");
+    if (parts.length !== 3) return fechaStr;
+    const fechaObjeto = new Date(parts[0], parts[1] - 1, parts[2]);
+    const opciones = { weekday: "long", day: "numeric", month: "long" };
+    let fechaFormateada = fechaObjeto.toLocaleDateString("es-ES", opciones);
+    return fechaFormateada.charAt(0).toUpperCase() + fechaFormateada.slice(1);
+  };
+
+  const fechasDisponibles = Object.keys(cronogramas);
+
+  return (
+    <>
+      <div
+        className="container mt-3 px-3 position-relative"
+        style={{ maxWidth: "600px", paddingBottom: "100px" }}
+      >
+        {/* 📋 ENCABEZADO */}
+        {loading ? (
+          <header className="mb-4 placeholder-glow">
+            <div className="mb-3">
+              <h4
+                className="placeholder col-6 rounded mb-2"
+                style={{ height: "24px" }}
+              ></h4>
+              <p className="placeholder col-9 d-block rounded small m-0"></p>
             </div>
+            <div className="d-flex gap-2">
+              <div
+                className="placeholder rounded-3 flex-grow-1"
+                style={{ height: "40px" }}
+              ></div>
+              <div
+                className="placeholder rounded-3"
+                style={{ width: "40px", height: "40px" }}
+              ></div>
+            </div>
+          </header>
+        ) : (
+          <header className="mb-4">
+            <div className="mb-3">
+              <h4 className="fw-bold m-0" style={{ color: "#2D3748" }}>
+                Mis Servicios
+              </h4>
+              <p className="text-muted small m-0">
+                Cronograma activo desde hoy en adelante
+              </p>
+            </div>
+
+            <div className="d-flex gap-2">
+              <button
+                onClick={manejarAutomatizacionMensual}
+                className="btn d-flex align-items-center justify-content-center gap-2 rounded-3 shadow-sm flex-grow-1 fw-semibold text-white"
+                style={{
+                  height: "40px",
+                  fontSize: "0.9rem",
+                  backgroundColor: "#6E4BDB",
+                  border: "none",
+                  transition: "all 0.3s",
+                }}
+                disabled={automatizando}
+              >
+                {automatizando ? (
+                  <>
+                    <div
+                      className="spinner-border spinner-border-sm"
+                      role="status"
+                    ></div>
+                    <span>Procesando...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>🚀</span>
+                    <span>Automatizar Próximo Mes</span>
+                  </>
+                )}
+              </button>
+
+              <button
+                onClick={() => setModalAbierto(true)}
+                className="btn d-flex align-items-center justify-content-center p-0 rounded-3 shadow-sm text-white"
+                style={{
+                  width: "40px",
+                  height: "40px",
+                  backgroundColor: "#6E4BDB",
+                  border: "none",
+                  transition: "all 0.3s",
+                }}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="22"
+                  height="22"
+                  fill="currentColor"
+                  viewBox="0 0 16 16"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2"
+                  />
+                </svg>
+              </button>
+            </div>
+          </header>
+        )}
+
+        {/* 🔲 CONTENIDO PRINCIPAL */}
+        {loading ? (
+          <div className="placeholder-glow d-flex flex-column gap-4">
+            <div
+              className="card placeholder col-12 rounded-3 border-0 shadow-sm"
+              style={{ height: "85px" }}
+            ></div>
+            <div
+              className="card placeholder col-12 rounded-3 border-0 shadow-sm"
+              style={{ height: "85px" }}
+            ></div>
           </div>
-        </div>
-      ))}
-    </div>
-
-    {/* MODAL DETALLE (Simplificado) */}
-    {mostrarModalInfo && servicioSeleccionado && (
-      <div className="modal fade show d-block shadow-blur">
-        <div className="modal-dialog modal-dialog-centered">
-          <div className="modal-content border-0 rounded-4 shadow-lg">
-            <div className="modal-header border-0">
-              <h5 className="fw-bold m-0">{servicioSeleccionado.Tipo}</h5>
-              <button className="btn-close" onClick={() => setMostrarModalInfo(false)}></button>
-            </div>
-            <div className="modal-body pt-0">
-              <div className="mb-3 p-3 bg-light rounded-3">
-                <div className="small text-muted text-uppercase fw-bold mb-2">Información</div>
-                <div><strong>Fecha:</strong> {servicioSeleccionado.Fecha}</div>
-                <div><strong>Jornada:</strong> {servicioSeleccionado.Jornada}</div>
-                <div className="mt-2 text-secondary fst-italic small">"{servicioSeleccionado.Comentario || "Sin comentarios"}"</div>
-              </div>
-              <div className="fw-bold mb-2 small">Áreas Asignadas:</div>
-              <div className="d-flex flex-wrap gap-2">
-                {cargandoAreas ? <div className="spinner-border spinner-border-sm text-primary"></div> : 
-                  areasDelServicio.length > 0 ? areasDelServicio.map((area, idx) => (
-                    <span key={idx} className="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 rounded-pill">{area}</span>
-                  )) : <span className="text-muted small">No hay áreas.</span>}
-              </div>
-            </div>
-            <div className="modal-footer border-0">
-              <button className="btn btn-light rounded-pill w-100" onClick={() => setMostrarModalInfo(false)}>Cerrar</button>
-            </div>
+        ) : fechasDisponibles.length === 0 ? (
+          <div
+            className="text-center my-5 py-5 rounded-4 shadow-sm"
+            style={{
+              backgroundColor: "rgba(255,255,255,0.7)",
+              backdropFilter: "blur(10px)",
+              border: "1px solid rgba(255,255,255,0.5)",
+            }}
+          >
+            <p className="text-muted m-0 fw-medium">
+              No hay servicios pendientes.
+            </p>
           </div>
-        </div>
-      </div>
-    )}
-
-    {/* MODAL CREAR (Optimizado) */}
-    {mostrarModalCrear && (
-      <div className="modal fade show d-block dark-blur" style={{ zIndex: 1050 }}>
-        <div className="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable modal-margin-fix"> 
-          <div className="modal-content border-0 shadow-lg dark-modal-box">
-            <form onSubmit={crearServicio} className="d-flex flex-column h-100">
-              <div className="modal-header border-0 p-3">
-                <div>
-                  <h6 className="fw-bold m-0">Configurar Servicio</h6>
-                  <small className="text-secondary opacity-75" style={{fontSize: '0.65rem'}}>Completa los campos y selecciona áreas</small>
-                </div>
-                <button className="btn-close btn-close-white shadow-none" type="button" onClick={() => setMostrarModalCrear(false)} />
-              </div>
-
-              <div className="modal-body p-3 custom-scroll">
-                <div className="row g-3">
-                  {/* FORMULARIO */}
-                  <div className="col-12 col-md-5">
-                    <div className="p-3 rounded-4 dark-section">
-                      <label className="small text-secondary mb-1">Fecha y Nombre</label>
-                      <input type="date" className="form-control dark-input-sm mb-2" value={fecha} onChange={e => setFecha(e.target.value)} required />
-                      <input className="form-control dark-input-sm mb-3" placeholder="Tipo" value={tipo} onChange={e => setTipo(e.target.value)} required />
-                      
-                      <div className="row g-2 mb-3">
-                        <div className="col-6">
-                          <label className="small text-secondary mb-1">Hora</label>
-                          <input type="number" className="form-control dark-input-sm" placeholder="00" value={hora} onChange={e => setHora(e.target.value)} />
-                        </div>
-                        <div className="col-6">
-                          <label className="small text-secondary mb-1">Periodo</label>
-                          <select className="form-select dark-input-sm" value={periodo} onChange={e => setPeriodo(e.target.value)}>
-                            <option value="am">am</option><option value="pm">pm</option>
-                          </select>
-                        </div>
-                      </div>
-
-                      <label className="small text-secondary mb-1">Notas</label>
-                      <textarea className="form-control dark-input-sm no-resize" rows="3" placeholder="Escribe..." value={comentario} onChange={e => setComentario(e.target.value)} />
-                    </div>
+        ) : (
+          fechasDisponibles.map((fecha) => {
+            const fechaFormateada = formatearFechaConDia(fecha);
+            return (
+              <section key={fecha} className="mb-4">
+                {/* ✨ Cabecera del Día */}
+                <section
+                  className="d-flex align-items-center justify-content-between gap-2 mb-3 sticky-top py-2"
+                  style={{
+                    zIndex: 100,
+                    top: 0,
+                    backgroundColor: "rgba(244, 247, 254, 0.8)",
+                    backdropFilter: "blur(12px)",
+                  }}
+                >
+                  <div className="d-flex align-items-center gap-2 flex-grow-1">
+                    <span
+                      className="badge rounded-pill px-3 py-2 fw-bold shadow-sm text-white"
+                      style={{
+                        fontSize: "0.85rem",
+                        backgroundColor: "#6E4BDB",
+                      }}
+                    >
+                      {fechaFormateada}
+                    </span>
+                    <div
+                      className="flex-grow-1 border-bottom border-2 opacity-50"
+                      style={{ borderColor: "#6E4BDB" }}
+                    ></div>
                   </div>
 
-                  {/* SELECCIÓN DE ÁREAS */}
-                  <div className="col-12 col-md-7">
-                    <div className="d-flex justify-content-between align-items-center mb-2">
-                      <div className="d-flex align-items-center gap-2">
-                        <span className="small fw-bold">Puestos</span>
-                        <button type="button" className="btn btn-sm btn-link p-0 text-decoration-none small text-info" onClick={() => aereasSeleccionadas.length === aereasGenerales.length ? setAereasSeleccionadas([]) : setAereasSeleccionadas(aereasGenerales.map(a => a.Id))}>
-                          {aereasSeleccionadas.length === aereasGenerales.length ? "(Limpiar)" : "(Todos)"}
-                        </button>
-                      </div>
-                      <span className="badge rounded-pill bg-primary" style={{fontSize: '0.6rem'}}>{aereasSeleccionadas.length}</span>
-                    </div>
-                    
-                    <div className="row g-2 overflow-auto custom-scroll" style={{ maxHeight: '300px' }}>
-                      {aereasGenerales.map(a => {
-                        const sel = aereasSeleccionadas.includes(a.Id);
-                        return (
-                          <div key={a.Id} className="col-4">
-                            <div onClick={() => sel ? setAereasSeleccionadas(aereasSeleccionadas.filter(id => id !== a.Id)) : setAereasSeleccionadas([...aereasSeleccionadas, a.Id])}
-                                 className={`p-2 text-center rounded-3 border area-chip ${sel ? "active" : "inactive"}`}>
-                              {a.Nombre}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
+                  <div className="d-flex align-items-center gap-2">
+                    <button
+                      onClick={() =>
+                        confirmarGeneracionFlyer(fecha, fechaFormateada)
+                      }
+                      className="btn d-flex align-items-center justify-content-center p-0 rounded-circle shadow-sm border-0 text-white"
+                      title="Generar flyer de este día"
+                      style={{
+                        width: "36px",
+                        height: "36px",
+                        backgroundColor: "#6E4BDB",
+                        transition: "transform 0.2s",
+                      }}
+                      onMouseOver={(e) =>
+                        (e.currentTarget.style.transform = "scale(1.1)")
+                      }
+                      onMouseOut={(e) =>
+                        (e.currentTarget.style.transform = "scale(1)")
+                      }
+                    >
+                      <img
+                        src={DescargarCronograma}
+                        alt=""
+                        style={{
+                          width: "20px",
+                          height: "20px",
+                          objectFit: "contain",
+                        }}
+                      />
+                    </button>
+
+                    <span
+                      className="small fw-bold px-2 py-1 rounded border shadow-sm"
+                      style={{
+                        color: "#6E4BDB",
+                        borderColor: "#6E4BDB",
+                        backgroundColor: "rgba(255,255,255,0.9)",
+                      }}
+                    >
+                      {cronogramas[fecha].length}
+                    </span>
                   </div>
-                </div>
-              </div>
+                </section>
 
-              <div className="modal-footer border-0 p-3 bg-dark">
-                <div className="d-flex w-100 gap-2">
-                  <button type="button" className="btn btn-link text-secondary text-decoration-none flex-grow-1" onClick={() => setMostrarModalCrear(false)}>Cancelar</button>
-                  <button type="submit" className="btn btn-primary rounded-pill flex-grow-1 fw-bold">GUARDAR</button>
-                </div>
-              </div>
-            </form>
-          </div>
-        </div>
+                {/* Bloque de tarjetas */}
+                <section className="d-flex flex-column gap-2">
+                  {cronogramas[fecha].map((servicio) => (
+                    <div
+                      key={servicio.Id}
+                      className="border-start border-4 rounded-end-3"
+                      style={{ borderColor: "#6E4BDB" }}
+                    >
+                      <CardServicios
+                        idServicio={servicio.Id}
+                        servicio={servicio}
+                        img_evento={Calendario}
+                        img_ubicacion={Localizacion}
+                      />
+                    </div>
+                  ))}
+                </section>
+              </section>
+            );
+          })
+        )}
       </div>
-    )}
 
-    <ModalGenerarDeLosServicios visible={mostrarModal} onClose={() => setMostrarModal(false)} onConfirm={manejarGeneracion} />
+      <ModalCrearServicio
+        isOpen={modalAbierto}
+        onClose={() => setModalAbierto(false)}
+        onExito={cargarData}
+      />
 
-    <style>{`
-      .shadow-blur { background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); }
-      .dark-blur { background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); }
-      .dark-modal-box { border-radius: 25px; background: #121212; border: 1px solid rgba(255,255,255,0.1); color: #fff; height: 70vh; }
-      .dark-section { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); }
-      .dark-input-sm { background: rgba(255,255,255,0.05) !important; border: 1px solid rgba(255,255,255,0.1) !important; color: white !important; font-size: 0.85rem !important; }
-      .no-resize { resize: none; }
-      .area-chip { cursor: pointer; fontSize: 0.65rem; min-height: 45px; display: flex; align-items: center; justify-content: center; line-height: 1.1; transition: 0.3s; }
-      .area-chip.active { background: #0d6efd; border-color: #0d6efd; color: white; box-shadow: 0 4px 10px rgba(13,110,253,0.3); }
-      .area-chip.inactive { background: rgba(255,255,255,0.05); color: #6c757d; border-color: rgba(255,255,255,0.1); }
-      .hover-card:hover { transform: translateY(-5px); transition: 0.3s; box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important; }
-      .custom-scroll::-webkit-scrollbar { width: 4px; }
-      .custom-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
-      @media (max-width: 768px) { .modal-margin-fix { margin-bottom: 100px !important; } }
-    `}</style>
-  </section>
-);
+      {/* 📸 DISPARADOR DINÁMICO OCULTO CON LA FECHA PURA PASADA POR PROPS */}
+      {ejecutarRenderFlyer && fechaSeleccionada && (
+        <div
+          style={{
+            position: "absolute",
+            left: "-9999px",
+            top: "-9999px",
+            opacity: 0,
+            pointerEvents: "none",
+          }}
+        >
+          <GeneradorInforme
+            fechaSeleccionada={fechaSeleccionada}
+            autoDisparar={true}
+            alTerminar={() => {
+              setEjecutarRenderFlyer(false);
+              setFechaSeleccionada(null);
+            }}
+          />
+        </div>
+      )}
+    </>
+  );
 }

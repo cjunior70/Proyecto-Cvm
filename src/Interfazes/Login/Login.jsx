@@ -8,46 +8,75 @@ export default function Login() {
   const [cargando, setCargando] = useState(false);
 
   useEffect(() => {
-    let isMounted = true;
+  let isMounted = true;
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (session && isMounted) {
-          if (window.location.hash.includes('access_token')) {
-            window.history.replaceState({}, document.title, window.location.pathname);
-          }
+  const redirigirUsuario = async (session) => {
+    if (!session || !isMounted) return;
 
-          setCargando(true);
+    try {
+      setCargando(true);
 
-          try {
-            const { data, error } = await supabase
-              .from("Servidores")
-              .select("Rol")
-              .eq("Id", session.user.id)
-              .single();
-
-            if (error) throw error;
-
-            if (data?.Rol === "Admin") {
-              navigate("/Homeadmin", { replace: true });
-            } else {
-              navigate("/Home", { replace: true });
-            }
-          } catch (err) {
-            console.error("Error en redirección:", err.message);
-            navigate("/Home", { replace: true });
-          } finally {
-            if (isMounted) setCargando(false);
-          }
-        }
+      if (window.location.hash.includes("access_token")) {
+        window.history.replaceState(
+          {},
+          document.title,
+          window.location.pathname
+        );
       }
-    );
 
-    return () => {
-      isMounted = false;
-      subscription.unsubscribe();
-    };
-  }, [navigate]);
+      const { data, error } = await supabase
+        .from("Servidores")
+        .select("Rol")
+        .eq("Id", session.user.id)
+        .single();
+
+      if (error) throw error;
+
+      navigate(
+        data?.Rol === "Admin" ? "/Homeadmin" : "/Home",
+        { replace: true }
+      );
+    } catch (err) {
+      console.error("Error en redirección:", err);
+      navigate("/Home", { replace: true });
+    } finally {
+      if (isMounted) setCargando(false);
+    }
+  };
+
+  // Verificar sesión existente al cargar
+  const verificarSesion = async () => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (session) {
+      await redirigirUsuario(session);
+    }
+  };
+
+  verificarSesion();
+
+  // Escuchar login/logout
+  const {
+    data: { subscription },
+  } = supabase.auth.onAuthStateChange(async (event, session) => {
+    console.log("EVENTO:", event);
+
+    if (event === "SIGNED_IN" && session) {
+      await redirigirUsuario(session);
+    }
+
+    if (event === "SIGNED_OUT") {
+      navigate("/login", { replace: true });
+    }
+  });
+
+  return () => {
+    isMounted = false;
+    subscription.unsubscribe();
+  };
+}, [navigate]);
 
   return (
   <div className="login-wrapper position-relative overflow-hidden">

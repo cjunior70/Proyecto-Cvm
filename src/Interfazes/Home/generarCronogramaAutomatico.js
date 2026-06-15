@@ -12,7 +12,7 @@ export const generarCronogramaAutomatico = async (alTerminar) => {
     // 2. Ejecutar el motor de comodines (el que acabamos de crear)
     const { data: dataComodines, error: errorComodines } = await supabase.rpc(
       "generar_cronograma_por_disponibilidad_real"
-    );
+    ); 
     if (errorComodines) throw errorComodines;
 
     // 3. Extraer los conteos (asumiendo que tus funciones retornan un entero o un objeto con total_asignados)

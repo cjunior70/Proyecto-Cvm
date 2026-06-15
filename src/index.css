@@ -1,0 +1,48 @@
+/* Importar fuente Inter desde Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+
+:root {
+  --primary-brand: #6E4BDB;
+  --bg-app: #F8FAFC;      /* Un blanco-azulado, más claro y limpio que el anterior */
+  --surface: #FFFFFF;
+  --text-main: #1A202C;    /* Un tono más profundo para mejor contraste */
+  --text-muted: #718096;
+  --border-subtle: #E2E8F0;
+  --brand-light: #EDE9FE;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: var(--bg-app); /* Esto aplicará el fondo a toda la web */
+  color: var(--text-main);
+  -webkit-font-smoothing: antialiased; /* Hace que el texto se vea más nítido */
+}
+
+/* Aplicación de fuentes y limpieza */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 700;
+  letter-spacing: -0.025em; /* Hace que los títulos se vean más compactos y modernos */
+}
+
+p { margin: 0px; }
+
+/* Tarjeta elegante */
+.card-premium {
+  background-color: var(--surface);
+  border-radius: 16px;
+  border: 1px solid var(--border-subtle);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+}
+
+/* Botón Brand */
+.btn-brand { 
+  background-color: var(--primary-brand); 
+  color: white; 
+  border-radius: 12px; 
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+.btn-brand:hover { 
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
