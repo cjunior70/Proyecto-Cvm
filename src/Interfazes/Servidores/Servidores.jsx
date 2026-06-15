@@ -1,276 +1,281 @@
-import { useEffect, useState } from "react";
-import { supabase } from "../../../Supabase/cliente";
-import DatosServidores from "./DatosServidores"; // Asegúrate de que el nombre del archivo coincida
+import React, { useState, useEffect } from "react";
+import Swal from "sweetalert2";
+import {
+  obtenerStaffMesActual,
+  actualizarNombreServidor,
+} from "./obtenerStaffMesActual";
+import DatosServidores from "./DatosServidores"; // 💡 Conexión con el componente hijo
 
 export default function Servidores() {
-  const [servidores, setServidores] = useState([]);
-  const [areasPermitidas, setAreasPermitidas] = useState([]);
-  const [mostrarModal, setMostrarModal] = useState(false);
+  const [staff, setStaff] = useState([]);
+  const [busqueda, setBusqueda] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  // 💡 ESTADO CLAVE: Controla cuál servidor abre la ficha flotante
   const [servidorSeleccionado, setServidorSeleccionado] = useState(null);
-  
-  // NUEVO ESTADO: Para controlar la interfaz de áreas/detalles
-  const [servidorParaAreas, setServidorParaAreas] = useState(null);
 
-  const [asignaciones, setAsignaciones] = useState([]);
-  const [dia, setDia] = useState("");
-  const [hora, setHora] = useState("");
-  const [areaId, setAreaId] = useState("");
-  const [cargando, setCargando] = useState(false);
+  // Cargar datos desde el servicio
+  const cargarServidores = async () => {
+    setLoading(true);
+    const data = await obtenerStaffMesActual();
+    setStaff(data);
+    setLoading(false);
+  };
 
-  // 1. Cargar servidores al inicio
   useEffect(() => {
     cargarServidores();
-    if (window.location.hash.includes("access_token") || window.location.hash.includes("error")) {
-      window.history.replaceState({}, document.title, window.location.pathname);
-    }
   }, []);
 
-  const cargarServidores = async () => {
-    const { data } = await supabase.from("Servidores").select("*").order("Nombre");
-    setServidores(data || []);
-  };
+  // Filtrar en tiempo real por búsqueda
+  const servidoresFiltrados = staff.filter(
+    (s) =>
+      (s.Nombre?.toLowerCase() || "").includes(busqueda.toLowerCase()) ||
+      (s.Correo?.toLowerCase() || "").includes(busqueda.toLowerCase()),
+  );
 
-  const cargarAreasPermitidas = async (idServidor) => {
-    const { data, error } = await supabase
-      .from("Servidor_Area")
-      .select(`IdAerea, Aerea ( Id, Nombre )`)
-      .eq("IdServidor", idServidor);
-    
-    if (error) return console.error(error);
-    setAreasPermitidas(data.map(item => item.Aerea) || []);
-  };
-
-  const cargarAsignacionesHorarios = async (idServidor) => {
-    const { data } = await supabase
-      .from("Disponbilidad")
-      .select(`id, Dia, Hora, Fecha, Aerea ( Id, Nombre )`)
-      .eq("IdServidor", idServidor)
-      .order("Fecha", { ascending: true });
-    setAsignaciones(data || []);
-  };
-
-  const abrirGestion = async (servidor) => {
-    setServidorSeleccionado(servidor);
-    setCargando(true);
-    await cargarAreasPermitidas(servidor.Id);
-    await cargarAsignacionesHorarios(servidor.Id);
-    setMostrarModal(true);
-    setCargando(false);
-  };
-
-  const cerrarModal = () => {
-    setMostrarModal(false);
-    setDia(""); setHora(""); setAreaId("");
-  };
-
-  const guardarNuevaAsignacion = async () => {
-    if (!dia || !hora || !areaId) return;
-    setCargando(true);
-    const { error } = await supabase.rpc("proyectar_disponibilidad_mensual", {
-      p_servidor_id: servidorSeleccionado.Id,
-      p_dia_nombre: dia,
-      p_hora: hora,
-      p_aerea: areaId,
-      p_estado: "Fijo",
-    });
-
-    if (!error) {
-      await cargarAsignacionesHorarios(servidorSeleccionado.Id);
-      await cargarServidores();
-      setDia(""); setHora(""); setAreaId("");
-    } else {
-      alert("Error al asignar: " + error.message);
-    }
-    setCargando(false);
-  };
-
-  const eliminarAsignacion = async (idReg) => {
-    if (!window.confirm("¿Eliminar este registro específico del mes?")) return;
-    setCargando(true);
-    const { error } = await supabase.from("Disponbilidad").delete().eq("id", idReg);
-    if (!error) {
-      await cargarAsignacionesHorarios(servidorSeleccionado.Id);
-      const { data } = await supabase
-        .from("Disponbilidad")
-        .select("id")
-        .eq("IdServidor", servidorSeleccionado.Id);
-      if (!data || data.length === 0) {
-        await supabase.from("Servidores").update({ Estado: "Libre" }).eq("Id", servidorSeleccionado.Id);
-        await cargarServidores();
+  // Editar Nombre rápido con SweetAlert
+  const manejarEditarNombre = (e, id, nombreActual) => {
+    e.stopPropagation(); // 💥 Evita que se abra la ficha al hacer clic en el lápiz
+    Swal.fire({
+      title: "Editar Nombre",
+      input: "text",
+      inputValue: nombreActual,
+      showCancelButton: true,
+      confirmButtonColor: "#0d6efd",
+      cancelButtonText: "Cancelar",
+      confirmButtonText: "Guardar",
+      inputValidator: (value) => {
+        if (!value) return "¡El nombre no puede quedar vacío, mi rey!";
+      },
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        Swal.showLoading();
+        const res = await actualizarNombreServidor(id, result.value);
+        if (res.success) {
+          setStaff((prev) =>
+            prev.map((s) => (s.Id === id ? { ...s, Nombre: result.value } : s)),
+          );
+          Swal.fire({
+            title: "¡Guardado!",
+            text: "Nombre actualizado con éxito.",
+            icon: "success",
+            timer: 1500,
+            showConfirmButton: false,
+          });
+        } else {
+          Swal.fire("Error", "No se pudo actualizar.", "error");
+        }
       }
-    }
-    setCargando(false);
+    });
   };
-
-  const horasOpciones = dia === "Domingo" 
-    ? ["7:00 AM", "9:00 AM y 11:00 AM", "6:00 PM"] 
-    : dia === "Miércoles" ? ["6:00 PM", "7:30 PM"] : [];
 
   return (
-    <div className="min-vh-100 bg-light pb-5">
-      {/* HEADER PREMIUM DARK */}
-      <div className="bg-dark text-white p-4 pb-5 rounded-bottom-5 shadow-lg">
-        <div className="d-flex align-items-center justify-content-between">
-          <div>
-            <h2 className="fw-bold mb-0">Servidores</h2>
-            <p className="opacity-75 small mb-0">Gestiona estados y horarios fijos.</p>
+    <div
+      className="w-100 min-vh-100 position-relative"
+      style={{
+        backgroundColor: "#f4f6f9",
+        paddingTop: "20px",
+        paddingBottom: "100px",
+      }}
+    >
+      <div className="container px-3" style={{ maxWidth: "600px" }}>
+        {/* 📋 ENCABEZADO */}
+        <header className="mb-3">
+          <h4 className="fw-bold m-0" style={{ color: "#2D3748" }}>
+            Staff de Servidores
+          </h4>
+          <p className="text-muted small m-0">
+            Control de asistencia y disponibilidad del mes
+          </p>
+        </header>
+
+        {/* 🔍 BARRA DE BÚSQUEDA */}
+        <div className="mb-3">
+          <div className="input-group bg-white shadow-sm rounded-3 overflow-hidden border-0">
+            <span className="input-group-text bg-white border-0 text-muted fs-5">
+              🔍
+            </span>
+            <input
+              type="text"
+              className="form-control border-0 ps-1"
+              placeholder="Buscar servidor..."
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              style={{ fontSize: "0.95rem", height: "46px", boxShadow: "none" }}
+            />
           </div>
-          <div className="bg-primary p-3 rounded-4 shadow-sm">
-            <i className="bi bi-person-gear fs-3 text-white"></i>
+          <div
+            className="text-muted font-monospace text-end mt-1 px-1"
+            style={{ fontSize: "0.68rem" }}
+          >
+            Total:{" "}
+            <strong style={{ color: "#6E4BDB" }}>
+              {servidoresFiltrados.length}
+            </strong>{" "}
+            de {staff.length}
           </div>
         </div>
-      </div>
 
-      {/* LISTA DE SERVIDORES */}
-      <div className="container" style={{ marginTop: '-25px' }}>
-        <div className="row g-3">
-          {servidores.map((s) => (
-            <div key={s.Id} className="col-12 col-md-6">
-              {/* CARTA CLICKEABLE PARA DETALLES/ÁREAS */}
-              <div 
-                className="card border-0 shadow-sm rounded-4 overflow-hidden" 
-                style={{ cursor: 'pointer' }}
-                onClick={() => setServidorParaAreas(s)}
+        {/* 🔲 CONTENIDO */}
+        {loading ? (
+          <div className="d-flex flex-column gap-3 placeholder-glow">
+            {[1, 2, 3].map((item) => (
+              <div
+                key={item}
+                className="card border-0 shadow-sm rounded-4 p-3 bg-white"
+                style={{ borderLeft: "5px solid #6E4BDB" }}
               >
-                <div className="card-body d-flex align-items-center p-3">
-                  <div className="position-relative">
-                    <img 
-                      src={s.Foto || `https://ui-avatars.com/api/?name=${s.Nombre}&background=random`} 
-                      className="rounded-circle border border-2 shadow-sm" 
-                      style={{ width: "52px", height: "52px", objectFit: "cover" }} 
-                    />
-                    <span className={`position-absolute bottom-0 end-0 p-1 border border-light rounded-circle ${s.Estado === 'Fijo' ? 'bg-success' : 'bg-secondary'}`}></span>
-                  </div>
-                  
-                  <div className="ms-3 flex-grow-1">
-                    <h6 className="fw-bold mb-1 text-dark">{s.Nombre}</h6>
-                    <span className={`badge rounded-pill ${s.Estado === 'Fijo' ? 'bg-success-subtle text-success' : 'bg-light text-muted'}`} style={{ fontSize: '9px', letterSpacing: '0.5px' }}>
-                       {s.Estado === "Fijo" ? "ESTADO: ASIGNADO" : "ESTADO: LIBRE"}
-                    </span>
+                <div
+                  className="placeholder rounded-circle"
+                  style={{ width: "48px", height: "48px" }}
+                ></div>
+              </div>
+            ))}
+          </div>
+        ) : servidoresFiltrados.length === 0 ? (
+          <div className="text-center my-5 py-5 bg-white rounded-4 shadow-sm border">
+            <p className="text-muted m-0 small fw-medium">
+              No se encontraron servidores.
+            </p>
+          </div>
+        ) : (
+          <div className="d-flex flex-column gap-3">
+            {servidoresFiltrados.map((servidor) => {
+              const esCargaAlta = servidor.TotalServiciosMes >= 6;
+              return (
+                <div
+                  key={servidor.Id}
+                  className="card border-0 shadow-sm rounded-4 p-3 bg-white card-clicable"
+                  style={{ borderLeft: `5px solid #6E4BDB`, cursor: "pointer" }}
+                  onClick={() => setServidorSeleccionado(servidor)}
+                >
+                  <div className="d-flex align-items-start justify-content-between mb-3">
+                    <div className="d-flex align-items-center gap-2">
+                      <img
+                        src={
+                          servidor.Foto ||
+                          `https://api.dicebear.com/7.x/initials/svg?seed=${servidor.Nombre}`
+                        }
+                        alt={servidor.Nombre}
+                        className="rounded-circle border border-2 shadow-sm object-fit-cover"
+                        style={{
+                          width: "48px",
+                          height: "48px",
+                          borderColor: "#f1f3f6",
+                        }}
+                      />
+                      <div>
+                        <div className="d-flex align-items-center">
+                          <h6
+                            className="fw-bold m-0 text-dark text-truncate"
+                            style={{ fontSize: "0.95rem", maxWidth: "160px" }}
+                          >
+                            {servidor.Nombre}
+                          </h6>
+                          <button
+                            className="btn btn-light border-0 p-0 ms-2 rounded-circle"
+                            style={{
+                              width: "24px",
+                              height: "24px",
+                              fontSize: "0.7rem",
+                            }}
+                            onClick={(e) =>
+                              manejarEditarNombre(
+                                e,
+                                servidor.Id,
+                                servidor.Nombre,
+                              )
+                            }
+                          >
+                            ✏️
+                          </button>
+                        </div>
+                        <span
+                          className="text-muted font-monospace d-block"
+                          style={{ fontSize: "0.72rem" }}
+                        >
+                          {servidor.Correo || "Sin correo"}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="d-flex flex-column align-items-end gap-1">
+                      <span
+                        className="badge rounded-3 px-2 py-1.5 fw-bold shadow-sm"
+                        style={{
+                          fontSize: "0.72rem",
+                          backgroundColor: esCargaAlta ? "#dc3545" : "#6E4BDB",
+                        }}
+                      >
+                        📅 {servidor.TotalServiciosMes} Serv.
+                      </span>
+                      <span
+                        className="badge rounded-pill border"
+                        style={{
+                          fontSize: "0.58rem",
+                          padding: "2px 8px",
+                          color: "#6E4BDB",
+                          backgroundColor: "#EDE9FE",
+                          borderColor: "#DDD6FE",
+                        }}
+                      >
+                        {servidor.Estado?.toUpperCase() || "LIBRE"}
+                      </span>
+                    </div>
                   </div>
 
-                  {/* BOTÓN CONFIGURAR HORARIOS (Detiene propagación para no abrir el otro modal) */}
-                  <button 
-                    className="btn btn-dark btn-sm rounded-pill fw-bold px-3 py-2 shadow-sm border-0" 
-                    onClick={(e) => {
-                        e.stopPropagation(); // IMPORTANTE: evita el click de la carta
-                        abrirGestion(s);
-                    }}
+                  <div
+                    className="p-2 px-3 rounded-3"
+                    style={{ backgroundColor: "#F5F3FF" }}
                   >
-                    Configurar
-                  </button>
+                    <span
+                      className="d-block fw-bold mb-1"
+                      style={{
+                        fontSize: "0.62rem",
+                        color: "#6E4BDB",
+                        letterSpacing: "0.3px",
+                      }}
+                    >
+                      📐 ÁREAS AUTORIZADAS
+                    </span>
+                    <div className="d-flex flex-wrap gap-1">
+                      {servidor.Areas?.map((area, idx) => (
+                        <span
+                          key={idx}
+                          className="badge rounded-pill fw-semibold border shadow-xs"
+                          style={{
+                            fontSize: "0.68rem",
+                            padding: "4px 8px",
+                            backgroundColor: "#fff",
+                            color: "#6E4BDB",
+                            borderColor: "#DDD6FE",
+                          }}
+                        >
+                          {area}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
-          ))}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
-      {/* MODAL ORIGINAL: CONFIGURACIÓN DE HORARIOS */}
-      {mostrarModal && (
-        <div className="modal fade show d-block" style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(8px)" }}>
-          <div className="modal-dialog modal-dialog-centered mx-3">
-            <div className="modal-content rounded-5 border-0 shadow-2xl overflow-hidden">
-              <div className="bg-dark p-4 text-white border-0 d-flex justify-content-between align-items-center">
-                <div className="d-flex align-items-center">
-                   <img src={servidorSeleccionado?.Foto || `https://ui-avatars.com/api/?name=${servidorSeleccionado?.Nombre}`} className="rounded-circle border border-2 border-primary me-3" style={{width: '45px', height: '45px', objectFit: 'cover'}} />
-                   <div>
-                     <h6 className="fw-bold mb-0">{servidorSeleccionado?.Nombre}</h6>
-                     <small className="opacity-75">Configuración de Horarios</small>
-                   </div>
-                </div>
-                <button className="btn-close btn-close-white shadow-none" onClick={cerrarModal}></button>
-              </div>
-
-              <div className="modal-body p-4 pt-4 bg-white">
-                <label className="small fw-bold text-uppercase text-primary mb-3 d-block" style={{ fontSize: "11px", letterSpacing: '1px' }}>
-                   <i className="bi bi-calendar-check-fill me-2"></i>Asignaciones Mensuales
-                </label>
-                
-                <div className="custom-scroll mb-4" style={{ maxHeight: '200px', overflowY: 'auto', paddingRight: '5px' }}>
-                  {asignaciones.length === 0 ? (
-                    <div className="text-center py-4 bg-light rounded-4 opacity-50">
-                      <small>No tiene horarios fijos asignados.</small>
-                    </div>
-                  ) : (
-                    asignaciones.map((a) => (
-                      <div key={a.id} className="d-flex justify-content-between align-items-center p-3 mb-2 rounded-4 bg-white border border-light shadow-sm border-start border-primary border-4 animate-fade-in">
-                        <div>
-                          <span className="fw-bold d-block text-dark text-capitalize" style={{ fontSize: "0.85rem" }}>
-                            {a.Dia} {a.Fecha ? new Date(a.Fecha + 'T00:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }) : ''}
-                          </span>
-                          <div className="d-flex align-items-center gap-2 mt-1">
-                            <span className="badge bg-primary-subtle text-primary fw-bold" style={{ fontSize: "9px" }}>{a.Hora}</span>
-                            <span className="text-muted fw-medium" style={{ fontSize: "10px" }}>{a.Aerea?.Nombre}</span>
-                          </div>
-                        </div>
-                        <button className="btn btn-light btn-sm rounded-circle text-danger shadow-sm" onClick={() => eliminarAsignacion(a.id)}>
-                          <i className="bi bi-trash3-fill"></i>
-                        </button>
-                      </div>
-                    ))
-                  )}
-                </div>
-
-                <div className="p-3 bg-light rounded-5 border border-white">
-                  <div className="mb-2 position-relative">
-                    <select className="form-select rounded-4 shadow-sm border-0 py-2 ps-4" value={areaId} onChange={(e) => setAreaId(e.target.value)}>
-                      <option value="">Seleccionar Área...</option>
-                      {areasPermitidas.map(a => <option key={a.Id} value={a.Id}>{a.Nombre}</option>)}
-                    </select>
-                  </div>
-
-                  <div className="row g-2">
-                    <div className="col-6">
-                      <select className="form-select rounded-4 shadow-sm border-0 py-2" value={dia} onChange={(e) => { setDia(e.target.value); setHora(""); }}>
-                        <option value="">Día</option>
-                        <option value="Domingo">Domingo</option>
-                        <option value="Miércoles">Miércoles</option>
-                      </select>
-                    </div>
-                    <div className="col-6">
-                      <select className="form-select rounded-4 shadow-sm border-0 py-2" value={hora} onChange={(e) => setHora(e.target.value)} disabled={!dia}>
-                        <option value="">Hora</option>
-                        {horasOpciones.map(h => <option key={h} value={h}>{h}</option>)}
-                      </select>
-                    </div>
-                  </div>
-
-                  <button className="btn btn-primary w-100 rounded-pill mt-4 fw-bold py-3 shadow-lg border-0 transition-all" onClick={guardarNuevaAsignacion} disabled={cargando || !hora || !areaId}>
-                    {cargando ? <span className="spinner-border spinner-border-sm me-2"></span> : <i className="bi bi-plus-circle-fill me-2"></i>}
-                    Asignar Horario
-                  </button>
-                </div>
-              </div>
-
-              <div className="p-3 bg-white text-center border-0 pb-4">
-                <button className="btn btn-link btn-sm text-decoration-none text-muted fw-bold" onClick={cerrarModal}>CERRAR PANEL</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* NUEVO MODAL: GESTIÓN DE ÁREAS (La interfaz DatosServidores que hicimos) */}
-      {servidorParaAreas && (
-        <DatosServidores 
-          servidor={servidorParaAreas} 
+      {servidorSeleccionado && (
+        <DatosServidores
+          servidor={servidorSeleccionado}
           onClose={() => {
-            setServidorParaAreas(null);
-            cargarServidores(); // Refresca por si cambió el estado
-          }} 
+            setServidorSeleccionado(null);
+            cargarServidores();
+          }}
         />
       )}
 
-      {/* ESTILOS REUTILIZADOS */}
       <style>{`
-        .rounded-bottom-5 { border-bottom-left-radius: 45px; border-bottom-right-radius: 45px; }
-        .shadow-2xl { box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4); }
-        .custom-scroll::-webkit-scrollbar { width: 3px; }
-        .custom-scroll::-webkit-scrollbar-thumb { background: #0d6efd; border-radius: 10px; }
-        .transition-all { transition: all 0.2s ease-in-out; }
-        .animate-fade-in { animation: fadeIn 0.4s ease forwards; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        .card-clicable { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+        .card-clicable:active { transform: scale(0.98); }
       `}</style>
     </div>
   );
