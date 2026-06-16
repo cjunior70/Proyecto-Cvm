@@ -16,6 +16,7 @@ import Homeadmin from './Interfazes/Home/Homeadmin'
 import VistaDetalleCronograma from './Interfazes/Home/VistaDetalle'
 import DetallesServicio from './Interfazes/Servicios/DetallesServicio' 
 import Reportes from './Interfazes/Reportes/Reportes'
+import DatosPersonales from './Interfazes/DatosPersonales/DatosPersonaes' 
 
 function App() {
 
@@ -53,6 +54,7 @@ function App() {
               <Route path='/Servicios' element={<Servicios/>}/>
               <Route path='/Servidores' element={<Servidores/>}/>
               <Route path='/Reportes' element={<Reportes/>} />
+              <Route path='/DatosPersonales' element={<DatosPersonales/>}/>
             </Route>
         </Routes>
       </BrowserRouter>

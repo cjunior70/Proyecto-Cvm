@@ -96,6 +96,7 @@ export default function Layout() {
               <MenuLink to="/Home" icon={home} label="Inicio" />
               <MenuLink to="/Disponibilidad" icon={Calendario} label="Turnos" />
               <MenuLink to="/Aereas" icon={Areas} label="Mis Áreas" />
+              <MenuLink to="/DatosPersonales" icon="👤" label="Perfil" />
             </>
           )}
         </section>
