@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import html2canvas from 'html2canvas';
-import { obtenerDetalleInforme } from '../Servicios/../Servicios/obtenerDetalleInforme'; 
+import { obtenerDetalleInforme } from '../Servicios/obtenerDetalleInforme'; // Ruta normalizada
 import Swal from 'sweetalert2';
 
 export default function GeneradorInforme({ fechaSeleccionada, autoDisparar, alTerminar }) {
@@ -31,18 +31,22 @@ export default function GeneradorInforme({ fechaSeleccionada, autoDisparar, alTe
 
   useEffect(() => {
     if (datosReporte && autoDisparar && flyerRef.current) {
-      // Tiempo prudente para que dibuje el layout forzado de 1050px
-      const timer = setTimeout(() => procesarYCompartir(), 600);
+      // Damos un tiempo prudente para asegurar que el DOM esté completamente pintado con los datos
+      const timer = setTimeout(() => procesarYCompartir(), 800);
       return () => clearTimeout(timer);
     }
   }, [datosReporte]);
 
   const procesarYCompartir = async () => {
     try {
+      if (!flyerRef.current) return;
+
       const canvas = await html2canvas(flyerRef.current, {
         scale: 2, // Mantiene la súper alta definición
         useCORS: true,
-        backgroundColor: '#f8fafc' 
+        backgroundColor: '#f8fafc',
+        width: 1050,
+        height: flyerRef.current.scrollHeight // Evita cortes en el lienzo
       });
 
       canvas.toBlob(async (blob) => {
@@ -79,25 +83,33 @@ export default function GeneradorInforme({ fechaSeleccionada, autoDisparar, alTe
   const { servicios, datosFlyer } = datosReporte;
   const { areas, asignaciones } = datosFlyer;
 
+  // Hacemos el cálculo de fechas 100% automático y seguro
   const obtenerDiaNumero = (fechaStr) => fechaStr.split("-")[2];
+  
   const obtenerMesAno = (fechaStr) => {
     const parts = fechaStr.split("-");
     const fechaObj = new Date(parts[0], parts[1] - 1, parts[2]);
     return fechaObj.toLocaleDateString("es-ES", { month: "long", year: "numeric" }).toUpperCase();
   };
 
-  // 🔥 LA MAGIA DE LA LOGIC: Ordenamos las áreas usando "Orden" con O mayúscula de tu DB.
-  // Si un área tiene un Orden null o no definido, se le asigna 999 por seguridad para enviarla al fondo.
+  // 🔥 NUEVA FUNCIÓN PARA TRAER EL NOMBRE DEL DÍA DE FORMA AUTOMÁTICA
+  const obtenerNombreDiaReal = (fechaStr) => {
+    const parts = fechaStr.split("-");
+    const fechaObj = new Date(parts[0], parts[1] - 1, parts[2]);
+    return fechaObj.toLocaleDateString("es-ES", { weekday: "long" }).toUpperCase();
+  };
+
+  // Ordenamos las áreas usando el campo "Orden" de tu base de datos
   const areasOrdenadas = [...areas].sort((a, b) => {
     const ordenA = a.Orden !== undefined && a.Orden !== null ? a.Orden : 999;
     const ordenB = b.Orden !== undefined && b.Orden !== null ? b.Orden : 999;
     return ordenA - ordenB;
   });
 
-  const widthAreas = '260px'; // Columna fija para los nombres de las áreas
+  const widthAreas = '260px'; 
 
   return (
-    /* CONTENEDOR ANCHO INTEGRAL PARA WHATSAPP (A prueba de colapsos) */
+    /* CONTENEDOR INTEGRAL (Si te daba error en blanco, asegúrate que el componente padre no use display: none) */
     <div 
       ref={flyerRef} 
       style={{ 
@@ -126,12 +138,12 @@ export default function GeneradorInforme({ fechaSeleccionada, autoDisparar, alTe
             EQUIPO PRODUCCIÓN
           </h1>
           <p style={{ fontSize: '14px', color: '#94a3b8', fontWeight: 'bold', letterSpacing: '4px', margin: '4px 0 0 0' }}>
-            {obtenerMesAno(fechaSeleccionada)} —
+            {obtenerMesAno(fechaSeleccionada)}
           </p>
         </div>
         <div style={{ textAlign: 'right' }}>
           <span style={{ fontSize: '16px', fontWeight: '900', letterSpacing: '2px', color: '#3b82f6', textTransform: 'uppercase', display: 'block' }}>
-            {servicios[0]?.Tipo || 'DOMINGO'}
+            {obtenerNombreDiaReal(fechaSeleccionada)}
           </span>
           <span style={{ fontSize: '56px', fontWeight: '900', display: 'block', lineHeight: '1', marginTop: '4px' }}>
             {obtenerDiaNumero(fechaSeleccionada)}
@@ -139,7 +151,7 @@ export default function GeneradorInforme({ fechaSeleccionada, autoDisparar, alTe
         </div>
       </div>
 
-      {/* 🗓️ ENCABEZADOS DE LAS JORNADAS (HORARIOS) */}
+      {/* 🗓️ ENCABEZADOS DE LAS JORNADAS (HORARIOS DEDUPED) */}
       <div style={{ display: 'flex', gap: '16px', marginBottom: '16px', alignItems: 'flex-end' }}>
         <div style={{ width: widthAreas, flexShrink: 0 }}></div> 
         
@@ -153,8 +165,9 @@ export default function GeneradorInforme({ fechaSeleccionada, autoDisparar, alTe
             textAlign: 'center',
             boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
           }}>
+            {/* ✅ REEMPLAZADO: Ahora lee dinámicamente el día correcto de la semana */}
             <span style={{ fontSize: '15px', fontWeight: 'bold', letterSpacing: '1px', textTransform: 'uppercase', display: 'block' }}>
-              Domingo
+              {obtenerNombreDiaReal(fechaSeleccionada)}
             </span>
             <span style={{ fontSize: '14px', fontWeight: '900', marginTop: '4px', display: 'block' }}>
               {serv.Jornada}
@@ -163,7 +176,7 @@ export default function GeneradorInforme({ fechaSeleccionada, autoDisparar, alTe
         ))}
       </div>
 
-      {/* 📋 CUERPO DE LA MATRIZ DE ASIGNACIONES (Fila por cada área ordenada) */}
+      {/* 📋 CUERPO DE LA MATRIZ DE ASIGNACIONES */}
       <div style={{ 
         display: 'flex', 
         flexDirection: 'column', 
@@ -173,9 +186,8 @@ export default function GeneradorInforme({ fechaSeleccionada, autoDisparar, alTe
         border: '1px solid #e2e8f0',
         boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)'
       }}>
-        {/* Cambiamos 'areas.map' por 'areasOrdenadas.map' para respetar tu prioridad */}
         {areasOrdenadas.map((area, index) => {
-          const bgColor = index % 2 === 0 ? "#ffffff" : "#f8fafc"; // Efecto Zebra elegante
+          const bgColor = index % 2 === 0 ? "#ffffff" : "#f8fafc"; 
 
           return (
             <div key={area.Id} style={{ 
