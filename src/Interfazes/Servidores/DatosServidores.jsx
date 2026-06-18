@@ -42,43 +42,44 @@ export default function DatosServidores({ servidor, onClose }) {
     }
   };
 
-  // Determinar color de badge de disponibilidad según estado real
   const esLibre = servidor.Estado === "Libre";
 
   return (
     <div
-      className="position-fixed bottom-0 start-0 w-100 bg-white d-flex flex-column animate-slide-up"
+      className="position-fixed bottom-0 start-50 bg-white d-flex flex-column animate-slide-up"
       style={{
+        width: "100%",
+        maxWidth: "600px", // 💡 IGUALA EL ANCHO DEL CONTENEDOR PADRE
         height: "calc(100% - 60px)",
         zIndex: 1500,
-        boxShadow: "0px -10px 30px rgba(0,0,0,0.18)",
-        borderTopLeftRadius: "32px",
-        borderTopRightRadius: "32px",
+        boxShadow: "0px -10px 35px rgba(15, 23, 42, 0.22)",
+        borderTopLeftRadius: "28px",
+        borderTopRightRadius: "28px",
         overflow: "hidden",
+        transform: "translateX(-50%)", // 💡 CENTRA LA FICHA AUTOMÁTICAMENTE EN ESCRITORIO
       }}
     >
-      {/* 🔝 HEADER: ESTILO OSCURO NEÓN PREMIUM */}
+      {/* 🔝 HEADER: GRADIENTE PREMIUM CORPORATIVO */}
       <div
         className="position-relative p-4 pt-5 text-center text-white"
         style={{
-          background: "linear-gradient(145deg, #1f2327 0%, #111315 100%)",
-          borderBottom: "4px solid #0d6efd",
+          background: "linear-gradient(135deg, #1E293B 0%, #0F172A 100%)",
+          borderBottom: "4px solid #6E4BDB", // Cambiado de azul genérico al morado de la app
         }}
       >
-        {/* Botón Volver Rediseñado */}
-        {/* ✕ Botón de Cerrar Universal (Sin dependencias) */}
+        {/* ✕ Botón de Cerrar Universal */}
         <button
           className="btn position-absolute top-0 start-0 m-3 d-flex align-items-center justify-content-center transition-btn"
           style={{
-            width: "42px",
-            height: "42px",
-            borderRadius: "14px",
-            background: "rgba(255,255,255,0.15)", // Un poco más claro para que resalte más
+            width: "38px",
+            height: "38px",
+            borderRadius: "12px",
+            background: "rgba(255,255,255,0.1)",
             backdropFilter: "blur(12px)",
-            border: "1px solid rgba(255,255,255,0.25)",
+            border: "1px solid rgba(255,255,255,0.15)",
             color: "#ffffff",
-            fontSize: "1.2rem",
-            fontWeight: "900", // Súper negrita para la X
+            fontSize: "1rem",
+            fontWeight: "900",
             lineHeight: 1,
             padding: 0,
           }}
@@ -96,31 +97,34 @@ export default function DatosServidores({ servidor, onClose }) {
                 `https://api.dicebear.com/7.x/initials/svg?seed=${servidor.Nombre}`
               }
               className="rounded-circle border border-4 border-white shadow-lg object-fit-cover"
-              style={{ width: "90px", height: "90px" }}
+              style={{ width: "84px", height: "84px" }}
+              alt={servidor.Nombre}
             />
-            {/* Indicador de disponibilidad inteligente con efecto pulso */}
             <span
               className={`position-absolute bottom-0 end-0 border border-3 border-dark rounded-circle ${esLibre ? "bg-success pulse-green" : "bg-warning pulse-orange"}`}
               style={{
-                width: "22px",
-                height: "22px",
-                transform: "translate(-5px, -5px)",
+                width: "20px",
+                height: "20px",
+                transform: "translate(-3px, -3px)",
               }}
             ></span>
           </div>
 
-          <h4
-            className="fw-black text-white mb-1 mt-2.5"
-            style={{ letterSpacing: "-0.5px", fontSize: "1.4rem" }}
+          <h5
+            className="fw-bold text-white mb-0 mt-2"
+            style={{ letterSpacing: "-0.5px", fontSize: "1.25rem" }}
           >
             {servidor.Nombre}
-          </h4>
+          </h5>
 
           <span
-            className={`badge mt-1.5 px-3 py-1.5 rounded-pill font-monospace fw-bold tracking-wider shadow-sm ${
-              esLibre ? "text-bg-success" : "text-bg-warning"
-            }`}
-            style={{ fontSize: "10px" }}
+            className="badge mt-1.5 px-3 py-1.5 rounded-pill font-monospace fw-bold tracking-wider shadow-sm"
+            style={{ 
+              fontSize: "9px",
+              color: esLibre ? "#22C55E" : "#EAB308",
+              backgroundColor: "rgba(255, 255, 255, 0.08)",
+              border: `1px solid ${esLibre ? "rgba(34, 197, 94, 0.2)" : "rgba(234, 179, 8, 0.2)"}`
+            }}
           >
             ● {servidor.Estado?.toUpperCase() || "LIBRE"}
           </span>
@@ -131,21 +135,21 @@ export default function DatosServidores({ servidor, onClose }) {
       <div
         className="p-4 flex-grow-1 overflow-auto"
         style={{
-          background: "#f1f3f6",
-          paddingBottom: "120px", // 💡 ¡ESTA ES LA MAGIA! Deja un colchón de espacio para que tu menú de abajo no tape nada
+          background: "#F8FAFC",
+          paddingBottom: "120px", 
         }}
       >
         {/* Cabecera de Sección */}
-        <div className="d-flex align-items-center justify-content-between mb-3.5 px-1">
+        <div className="d-flex align-items-center justify-content-between mb-3 px-1">
           <h6
-            className="fw-extrabold text-secondary m-0 font-monospace"
-            style={{ fontSize: "11px", letterSpacing: "1px" }}
+            className="fw-bold text-secondary m-0 font-monospace"
+            style={{ fontSize: "10.5px", letterSpacing: "0.8px" }}
           >
             PERMISOS & ÁREAS HABILITADAS
           </h6>
           <span
             className="badge bg-white text-dark rounded-pill shadow-xs border px-2.5 py-1 fw-bold"
-            style={{ fontSize: "11px" }}
+            style={{ fontSize: "10.5px" }}
           >
             {asignadas.length} Áreas
           </span>
@@ -155,22 +159,21 @@ export default function DatosServidores({ servidor, onClose }) {
         {cargando ? (
           <div className="text-center py-5 my-5">
             <div
-              className="spinner-border text-primary"
+              className="spinner-border"
               role="status"
-              style={{ width: "2.5rem", height: "2.5rem" }}
+              style={{ width: "2.2rem", height: "2.2rem", color: "#6E4BDB" }}
             ></div>
-            <p className="text-muted mt-2 small font-monospace">
+            <p className="text-muted mt-2 small font-monospace" style={{ fontSize: '11px' }}>
               Sincronizando con Supabase...
             </p>
           </div>
         ) : (
-          <div className="d-flex flex-column gap-2.5">
+          <div className="d-flex flex-column gap-2">
             {todasAreas.map((area) => {
               const estaAsignada = asignadas.includes(area.Id);
 
               return (
                 <div key={area.Id} className="w-100">
-                  {/* ... todo tu código de la tarjeta del área se mantiene exactamente igual ... */}
                   <div
                     onClick={() => toggleArea(area.Id)}
                     className={`card-tactil p-3 rounded-4 d-flex align-items-center justify-content-between border transition-all ${
@@ -181,41 +184,42 @@ export default function DatosServidores({ servidor, onClose }) {
                     style={{
                       cursor: "pointer",
                       borderLeft: estaAsignada
-                        ? "6px solid #0d6efd"
-                        : "6px solid #b0b8c1",
+                        ? "5px solid #6E4BDB" // Sintonizado con tu color morado
+                        : "5px solid #CBD5E1",
+                      borderColor: estaAsignada ? "#6E4BDB" : "#E2E8F0"
                     }}
                   >
-                    {/* Contenido de la tarjeta */}
                     <div className="d-flex align-items-center">
                       <div
                         className={`p-2 rounded-3 me-3 d-flex align-items-center justify-content-center transition-all ${
                           estaAsignada
-                            ? "bg-primary text-white shadow-sm"
+                            ? "text-white shadow-sm"
                             : "bg-light text-muted border"
                         }`}
                         style={{
-                          width: "34px",
-                          height: "34px",
-                          fontSize: "0.9rem",
+                          width: "32px",
+                          height: "32px",
+                          fontSize: "0.85rem",
+                          backgroundColor: estaAsignada ? "#6E4BDB" : "#F1F5F9"
                         }}
                       >
                         {estaAsignada ? "✓" : "○"}
                       </div>
                       <span
                         className={`fw-bold ${estaAsignada ? "text-dark" : "text-secondary"}`}
-                        style={{ fontSize: "14.5px" }}
+                        style={{ fontSize: "13.5px" }}
                       >
                         {area.Nombre}
                       </span>
                     </div>
 
-                    <div className="form-check form-switch m-0 pointer-events-none">
+                    <div className="form-check form-switch m-0" style={{ pointerEvents: "none" }}>
                       <input
                         className="form-check-input"
                         type="checkbox"
                         checked={estaAsignada}
                         readOnly
-                        style={{ width: "2.2em", height: "1.1em" }}
+                        style={{ width: "2.1em", height: "1.05em", cursor: "pointer" }}
                       />
                     </div>
                   </div>
@@ -226,58 +230,51 @@ export default function DatosServidores({ servidor, onClose }) {
         )}
       </div>
 
-      {/* 💎 ESTILOS CSS REFINADOS */}
+      {/* 💎 ESTILOS CSS REFINADOS FIX RESPONSIVE */}
       <style>{`
-        .fw-black { font-weight: 900; }
-        .fw-extrabold { font-weight: 800; }
-        
-        /* Animación suave de apertura hacia arriba tipo hoja nativa */
         .animate-slide-up { 
-          animation: slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards; 
+          animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; 
         }
         .animate-pop { 
-          animation: popIn 0.45s cubic-bezier(0.34, 1.56, 0.64, 1); 
+          animation: popIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); 
         }
         
         @keyframes slideUp { 
-          from { transform: translateY(100%); } 
-          to { transform: translateY(0); } 
+          from { transform: translate(-50%, 100%); } 
+          to { transform: translate(-50%, 0); } 
         }
         @keyframes popIn { 
-          from { transform: scale(0.85); opacity: 0; } 
+          from { transform: scale(0.9); opacity: 0; } 
           to { transform: scale(1); opacity: 1; } 
         }
         
-        /* Efectos Táctiles */
         .card-tactil {
-          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+          transition: all 0.15s ease-in-out;
         }
         .card-tactil:active {
-          transform: scale(0.97);
-          background-color: #f8fafc !important;
+          transform: scale(0.98);
+          background-color: #F8FAFC !important;
         }
         .transition-btn:active {
-          transform: scale(0.9);
-          background: rgba(255,255,255,0.2) !important;
+          transform: scale(0.92);
         }
         
-        /* Efectos de pulso neón para estados */
         .pulse-green {
-          box-shadow: 0 0 0 0 rgba(25, 135, 84, 0.7);
+          box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
           animation: pulseG 2s infinite;
         }
         .pulse-orange {
-          box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.7);
+          box-shadow: 0 0 0 0 rgba(234, 179, 8, 0.7);
           animation: pulseO 2s infinite;
         }
         
         @keyframes pulseG {
-          70% { box-shadow: 0 0 0 8px rgba(25, 135, 84, 0); }
-          100% { box-shadow: 0 0 0 0 rgba(25, 135, 84, 0); }
+          70% { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
+          100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
         }
         @keyframes pulseO {
-          70% { box-shadow: 0 0 0 8px rgba(25, 193, 7, 0); }
-          100% { box-shadow: 0 0 0 0 rgba(25, 193, 7, 0); }
+          70% { box-shadow: 0 0 0 6px rgba(234, 179, 8, 0); }
+          100% { box-shadow: 0 0 0 0 rgba(234, 179, 8, 0); }
         }
       `}</style>
     </div>
