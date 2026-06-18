@@ -189,7 +189,7 @@ export default function DetallesServicio() {
       focusConfirm: false,
       showCancelButton: true,
       confirmButtonText: "Guardar Cambios",
-      confirmButtonColor: "#0d6efd",
+      confirmButtonColor: "#6E4BDB",
       cancelButtonText: "Cancelar",
       preConfirm: () => {
         const fecha = document.getElementById("swal-fecha").value;
@@ -460,12 +460,12 @@ export default function DetallesServicio() {
 </section>
 
               {/* 👥 Sección: Servidores Apuntados */}
-              <section className="mt-4">
+              <section className="mt-4 border-4 m-1 ">
                 <h6 className="fw-bold text-dark fs-5 mb-2">
                   Servidores Apuntados ({DatosPersonal?.length || 0})
                 </h6>
                 <section
-                  className="border border-light-subtle border-2 rounded overflow-y-auto overflow-x-hidden bg-white shadow-sm"
+                  className="border border-light-subtle border-2 rounded overflow-y-auto overflow-x-hidden bg-white shadow-sm p-2"
                   style={{ maxHeight: "46vw" }}
                 >
                   {DatosPersonal.length === 0 ? (

@@ -21,8 +21,6 @@ export const obtenerServiciosAgrupados = async () => {
       grupos[fecha].push(servicio);
       return grupos;
     }, {});
-
-    console.log("✅ [Service] Servicios agrupados con éxito por día:", Object.keys(serviciosAgrupados).length, "días encontrados.");
     return serviciosAgrupados;
 
   } catch (error) {

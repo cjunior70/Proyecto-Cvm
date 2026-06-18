@@ -17,14 +17,15 @@ export default function Layout() {
   useEffect(() => {
     const verificarAcceso = async () => {
       try {
+        setLoading(true);
         const { data: { user } } = await supabase.auth.getUser();
         
         if (!user) {
-          navigate("/"); // O a tu ruta de login
+          navigate("/", { replace: true });
           return;
         }
 
-        // 1. OBTENER ROL Y DATOS DEL SERVIDOR
+        // 1. OBTENER ROL Y DATOS DEL SERVIDOR (Primero lo primero)
         const { data: servidor, error: errServ } = await supabase
           .from("Servidores")
           .select("Rol")
@@ -32,31 +33,44 @@ export default function Layout() {
           .single();
 
         if (errServ || !servidor) throw new Error("No se encontró el perfil");
-        setRol(servidor.Rol);
+        
+        const miRol = servidor.Rol;
+        setRol(miRol); // Guardamos el rol confirmado
 
-        // 2. VERIFICACIÓN DE ÁREAS (Onboarding "Genial")
-        // Solo para usuarios comunes, o si quieres que los admins también tengan área
-        const { data: areas } = await supabase
-          .from("Servidor_Area")
-          .select("IdAerea")
-          .eq("IdServidor", user.id);
-
-        const tieneAreas = areas && areas.length > 0;
-
-        // Si no tiene áreas y no está ya en la pantalla de Áreas, lo mandamos allá
-        if (!tieneAreas && location.pathname !== "/Aereas") {
-          console.log("Redirigiendo a configuración de áreas...");
-          navigate("/Aereas", { replace: true });
-          return;
+        // 🚨 2. CONTROL DE TRÁFICO EXCLUSIVO PARA ADMINS 👑
+        if (miRol === "Admin") {
+          // Si el Admin por algún motivo cae en el Home común, lo movemos a su panel
+          if (location.pathname === "/Home" || location.pathname === "/Aereas") {
+            navigate("/Homeadmin", { replace: true });
+            return;
+          }
         }
 
-        // 3. REDIRECCIÓN SEGÚN ROL AL ENTRAR
+        // 🚨 3. VERIFICACIÓN DE ÁREAS (Estrictamente SOLO para usuarios comunes)
+        if (miRol !== "Admin") {
+          const { data: areas } = await supabase
+            .from("Servidor_Area")
+            .select("IdAerea")
+            .eq("IdServidor", user.id);
+
+          const tieneAreas = areas && areas.length > 0;
+
+          // Si no tiene áreas y no está ya en la pantalla de Áreas, lo mandamos allá
+          if (!tieneAreas && location.pathname !== "/Aereas") {
+            console.log("Redirigiendo a configuración de áreas...");
+            navigate("/Aereas", { replace: true });
+            return;
+          }
+        }
+
+        // 4. REDIRECCIÓN SI INTENTA VOLVER AL LOGIN ESTANDO LOGUEADO
         if (location.pathname === "/" || location.pathname === "/login") {
-           navigate(servidor.Rol === "Admin" ? "/Homeadmin" : "/Home");
+           navigate(miRol === "Admin" ? "/Homeadmin" : "/Home", { replace: true });
         }
 
       } catch (err) {
         console.error("Error en el Layout:", err);
+        navigate("/", { replace: true });
       } finally {
         setLoading(false);
       }
@@ -74,7 +88,7 @@ export default function Layout() {
   }
 
   return (
-    <section className="d-flex flex-column min-vh-100" style={{ backgroundColor: "#F4F7FE" }}>
+    <section className="d-flex flex-column min-vh-100" style={{ backgroundColor: "#87878752" }}>
       <section className="flex-grow-1 p-2 pb-5 mb-5">
         <Outlet />
       </section>
@@ -127,17 +141,19 @@ function MenuLink({ to, icon, label }) {
                  backgroundColor: isActive ? "#EDE9FE" : "transparent",
                  transition: "all 0.3s ease"
                }}>
-            <img 
-              src={icon} 
-              style={{ 
-                width: "100px", 
-                height: "24px", 
-                filter: isActive ? "none" : "grayscale(100%)",
-                // Aplica un filtro de color al icono cuando está activo si la imagen lo permite
-                color: isActive ? "#6E4BDB" : "#A0AEC0" 
-              }} 
-              alt={label} 
-            />
+            {typeof icon === "string" && !icon.includes("/") ? (
+              <span style={{ fontSize: "20px" }}>{icon}</span>
+            ) : (
+              <img 
+                src={icon} 
+                style={{ 
+                  width: "24px", 
+                  height: "24px", 
+                  filter: isActive ? "none" : "grayscale(100%)"
+                }} 
+                alt={label} 
+              />
+            )}
           </div>
           <span style={{ 
             fontSize: '9px', 

@@ -88,22 +88,15 @@ export default function Login() {
       <div className="main-card animate__animated animate__fadeIn">
         {/* Cabecera con Branding */}
         <div className="text-center mb-5">
-          <div className="logo-outer">
-            <div className="logo-inner shadow-lg">
-              <video 
-                src="https://bbzhasobdrkaakqhuvpc.supabase.co/storage/v1/object/public/Video/Gif%20de%20carga.mp4"
-                autoPlay 
-                loop 
-                muted 
-                playsInline
-                className="video-logo"
-              />
+          <div className="logo-outer ">
+            <div className="logo-inner shadow-lg bg-black d-flex justify-content-center align-items-center">
+              <img className="w-75 h-75 mt-3 ms-2" src="https://iglesiacvm.co/wp-content/uploads/2025/09/vvedqkmxpqlhocslbsby-1.webp" alt="" />
             </div>
           </div>
           <h1 className="brand-title mt-3">CVM<span className="fw-light">Portal</span></h1>
           <div className="d-flex align-items-center justify-content-center gap-2">
             <span className="badge bg-dark-subtle text-dark-emphasis rounded-pill px-3" style={{ fontSize: '10px', letterSpacing: '1px' }}>
-              OFICIAL v2.5
+              OFICIAL v3.0
             </span>
           </div>
         </div>
