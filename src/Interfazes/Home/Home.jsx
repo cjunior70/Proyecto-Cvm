@@ -10,7 +10,7 @@ export default function Home() {
   const [cargando, setCargando] = useState(true);
   
   const hoyFecha = new Date().toLocaleDateString('es-ES', { 
-    weekday: 'long', day: 'numeric', month: 'long' 
+    weekday: 'long', day: 'numeric', month: 'short' 
   });
 
   const cargarMiAgenda = async () => {
@@ -36,7 +36,6 @@ export default function Home() {
 
       if (error) throw error;
 
-      // Filtrado con validación de existencia
       const misAsignaciones = (data || []).filter(asig => 
         asig?.IdServidorExtra === miId || asig?.Servidor_Area?.IdServidor === miId
       );
@@ -58,16 +57,11 @@ export default function Home() {
       );
 
       if (listaOrdenada.length > 0) {
-        // 1. Obtenemos la fecha del primer servicio (el más próximo)
         const fechaProxima = listaOrdenada[0].Fecha;
-
-        // 2. Filtramos todos los servicios que tengan esa misma fecha
         const serviciosDeEseDia = listaOrdenada.filter(s => s.Fecha === fechaProxima);
-        
-        // 3. Los servicios que NO son de esa fecha van a "futuros"
         const serviciosRestantes = listaOrdenada.filter(s => s.Fecha !== fechaProxima);
 
-        setProximoServicio(serviciosDeEseDia); // Ahora es un array con todos los turnos del día
+        setProximoServicio(serviciosDeEseDia);
         setFuturosServicios(serviciosRestantes);
         setTotalPendientes(listaOrdenada.length);
       } else {
@@ -88,88 +82,108 @@ export default function Home() {
     cargarMiAgenda(); 
   }, []);
 
-  // Si está cargando, mostramos un spinner para que no se vea blanco
   if (cargando) {
     return (
-      <div className="min-vh-100 d-flex align-items-center justify-content-center bg-light">
-        <div className="spinner-border text-primary" role="status"></div>
+      <div className="min-vh-100 d-flex align-items-center justify-content-center bg-white">
+        <div className="spinner-border" style={{ color: "#6E4BDB" }} role="status"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-vh-100 bg-light pb-5">
-      <div className="bg-dark text-white p-4 pb-5 rounded-bottom-5 shadow-lg">
-        <div className="d-flex justify-content-between align-items-center mb-4">
-          <div className="bg-primary-subtle p-2 rounded-3" onClick={cargarMiAgenda} style={{cursor: 'pointer'}}>
-            <i className="bi bi-arrow-clockwise text-primary fs-5"></i>
+    <div className="min-vh-100 pb-5 animate__animated animate__fadeIn" style={{ backgroundColor: "#F8FAFC" }}>
+      
+      {/* 🔮 COMPACT STICKY HEADER */}
+      <div className="text-white px-3 py-3 rounded-bottom-4 shadow-sm sticky-top" 
+           style={{ background: "linear-gradient(135deg, #1E293B 0%, #0F172A 100%)", zIndex: 1020 }}>
+        <div className="container p-0">
+          <div className="d-flex align-items-center justify-content-between">
+            
+            {/* Izquierda: Info de la Agenda */}
+            <div>
+              <h2 className="fw-bold m-0 text-capitalize" style={{ fontSize: '1.25rem', letterSpacing: '-0.5px' }}>
+                Mi Agenda
+              </h2>
+              <p className="text-white-50 m-0 text-capitalize" style={{ fontSize: '10.5px', fontWeight: '500' }}>
+                {hoyFecha}
+              </p>
+            </div>
+
+            {/* Derecha: Botón Recargar + Badge compacto */}
+            <div className="d-flex align-items-center gap-2">
+              <button className="btn btn-sm text-white border-0 p-1.5 rounded-3 bg-white bg-opacity-10 d-flex align-items-center justify-content-center"
+                      onClick={cargarMiAgenda} style={{ width: "32px", height: "32px" }}>
+                <i className="bi bi-arrow-clockwise fs-5"></i>
+              </button>
+              <span className="badge rounded-pill py-1.5 px-2.5 fw-bold bg-white bg-opacity-15 text-white" 
+                    style={{ fontSize: '9.5px', letterSpacing: '0.3px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                {totalPendientes} PENDIENTES
+              </span>
+            </div>
+
           </div>
-          <span className="badge rounded-pill bg-glass py-2 px-3 fw-bold" style={{ fontSize: '11px' }}>
-            {totalPendientes} PENDIENTES
-          </span>
-        </div>
-        
-        <div className="text-center">
-          <h6 className="text-uppercase opacity-50 fw-bold mb-1" style={{ fontSize: '10px', letterSpacing: '2px' }}>
-            {hoyFecha}
-          </h6>
-          <h2 className="fw-bold mb-0">Mi Agenda</h2>
-          <p className="small opacity-75">Tus próximos pasos en el servicio</p>
         </div>
       </div>
 
-      <div className="container" style={{ marginTop: '-30px' }}>
+      <div className="container px-3 mt-3">
         {totalPendientes === 0 ? (
-          <div className="card border-0 shadow-sm rounded-5 py-5 px-4 text-center bg-white">
-            <div className="py-4">
-              <div className="mb-3 display-4 opacity-25">📭</div>
-              <h5 className="fw-bold text-dark">Todo al día</h5>
-              <p className="text-muted small mx-auto" style={{ maxWidth: '250px' }}>
-                No tienes servicios asignados por ahora.
+          /* STATE: COMPACTO CUANDO NO HAY SERVICIOS */
+          <div className="card border-0 shadow-sm rounded-4 py-5 px-4 text-center bg-white mx-auto mt-4" style={{ maxWidth: '450px' }}>
+            <div className="py-2">
+              <div className="mb-2 fs-2">📭</div>
+              <h6 className="fw-bold text-dark mb-1" style={{ fontSize: '14px' }}>Todo al día, mi rey</h6>
+              <p className="text-muted small m-0 mx-auto" style={{ maxWidth: '240px', fontSize: '11.5px' }}>
+                No tienes servicios asignados en el cronograma por ahora.
               </p>
             </div>
           </div>
         ) : (
-          <div className="row g-3">
-            <div className="col-12 mt-2 mb-1">
-                <span className="badge bg-primary text-uppercase px-3 py-2 rounded-pill shadow-sm" style={{fontSize: '10px', letterSpacing: '1px'}}>
-                   Servicio más próximo
-                </span>
+          <div className="row g-2.5 justify-content-center">
+            
+            {/* 📌 SECCIÓN: PRÓXIMO SERVICIO */}
+            <div className="col-12 mt-1 mb-1" style={{ maxWidth: '480px' }}>
+              <span className="text-muted text-uppercase fw-bold" style={{ fontSize: '10px', letterSpacing: '0.8px' }}>
+                ⚡ Siguiente Turno
+              </span>
             </div>
             
             {proximoServicio.map((item) => (
-              <div key={item.Id} className="col-12 animate__animated animate__fadeInUp">
-                <div className="card border-0 shadow-sm rounded-4 overflow-hidden border-start border-primary border-4">
+              <div key={item.Id} className="col-12 animate__animated animate__fadeInUp" style={{ maxWidth: '480px' }}>
+                <div className="card border-0 shadow-sm rounded-4 overflow-hidden position-relative bg-white"
+                     style={{ borderLeft: '4px solid #6E4BDB !important' }}>
                   <CartaCronograma servicio={item} />
                 </div>
               </div>
             ))}
 
+            {/* 📅 SECCIÓN: FUTUROS SERVICIOS */}
             {futurosServicios.length > 0 && (
-                <>
-                    <div className="col-12 mt-4 mb-1 d-flex align-items-center">
-                        <hr className="flex-grow-1 opacity-10" />
-                        <span className="mx-3 text-muted text-uppercase fw-bold" style={{fontSize: '10px', letterSpacing: '1px'}}>
-                            Siguientes servicios
-                        </span>
-                        <hr className="flex-grow-1 opacity-10" />
+              <>
+                <div className="col-12 mt-3.5 mb-1 d-flex align-items-center" style={{ maxWidth: '480px' }}>
+                  <span className="text-muted text-uppercase fw-bold" style={{ fontSize: '10px', letterSpacing: '0.8px' }}>
+                    🗓️ Próximas Fechas
+                  </span>
+                  <hr className="flex-grow-1 opacity-10 ms-2 my-0" style={{ color: '#94A3B8' }} />
+                </div>
+                
+                {futurosServicios.map((item) => (
+                  <div key={item.Id} className="col-12 animate__animated animate__fadeInUp" style={{ maxWidth: '480px' }}>
+                    <div className="card border-0 shadow-sm rounded-4 overflow-hidden bg-white" 
+                         style={{ opacity: 0.9, border: '1px solid #F1F5F9' }}>
+                      <CartaCronograma servicio={item} />
                     </div>
-                    {futurosServicios.map((item) => (
-                      <div key={item.Id} className="col-12 animate__animated animate__fadeInUp">
-                          <div className="card border-0 shadow-sm rounded-4 overflow-hidden opacity-75">
-                            <CartaCronograma servicio={item} />
-                          </div>
-                      </div>
-                    ))}
-                </>
+                  </div>
+                ))}
+              </>
             )}
+
           </div>
         )}
       </div>
 
       <style>{`
-        .rounded-bottom-5 { border-bottom-left-radius: 45px; border-bottom-right-radius: 45px; }
-        .bg-glass { background: rgba(255, 255, 255, 0.15); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); }
+        .rounded-bottom-4 { border-bottom-left-radius: 18px !important; border-bottom-right-radius: 18px !important; }
+        .transition-all { transition: all 0.2s ease-in-out; }
       `}</style>
     </div>
   );
