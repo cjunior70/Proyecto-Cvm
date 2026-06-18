@@ -91,11 +91,11 @@ export default function Homeadmin() {
   };
 
   return (
-    <div style={{ backgroundColor: "#F4F7FE", minHeight: "100vh", paddingBottom: "20px" }}>
+    <div className="rounded-4" style={{ backgroundColor: "#F4F7FE", minHeight: "100vh", paddingBottom: "20px" }}>
       {/* HEADER: Fijo y redondeado */}
       <section 
         className="p-3 mb-3 bg-white shadow-sm position-fixed z-1" 
-        style={{ width: "100%", maxWidth: "600px", left: "50%", transform: "translateX(-50%)", borderRadius: "0 0 25px 25px" }}
+        style={{ width: "90%", maxWidth: "600px", left: "50%", transform: "translateX(-50%)", borderRadius: "0 0 25px 25px" }}
       >
         {loading ? (
           <section className="d-flex align-items-center justify-content-between placeholder-glow">

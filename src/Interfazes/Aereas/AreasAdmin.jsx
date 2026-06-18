@@ -124,10 +124,15 @@ export default function AreasAdmin() {
   };
 
   return (
-    <div className="container py-4" style={{ paddingBottom: '80px' }}>
-      <div className="d-flex justify-content-between align-items-center mb-4 sticky-top py-2" style={{ backgroundColor: '#f8f9fa', zIndex: 10 }}>
-        <h4 className="fw-bold m-0">Gestión de Áreas</h4>
-        <button className="btn btn-primary btn-sm rounded-pill px-3 shadow-sm" onClick={() => { limpiarFormulario(); setMostrarModal(true); }}>+ Nueva</button>
+    <div className="container py-3 rounded-3" style={{backgroundColor: '#f8f9fa',paddingBottom: '80px' }}>
+      <div className="d-flex justify-content-between align-items-center mb-4 sticky-top py-2 rounded-4 p-3" style={{ backgroundColor: '#f8f9fa', zIndex: 10 }}>
+        <section className="w-75">
+          <h4 className="fw-bold m-0">Gestión de Áreas</h4>
+          <p className="small text-muted mb-0">
+            Aquí es donde está el manejo de todas las área necesarias para un servicio.
+          </p>
+        </section>
+        <button className="w-25 btn btn-sm rounded-pill px-3 shadow-sm" style={{background:"#6E4BDB", color:"white"}} onClick={() => { limpiarFormulario(); setMostrarModal(true); }}>+ Nueva</button>
       </div>
 
       {loading ? (
@@ -145,15 +150,15 @@ export default function AreasAdmin() {
         <div className="row row-cols-2 g-2">
           {areas.map((a) => (
             <div key={a.Id} className="col">
-              <div className="card h-100 border-0 shadow-sm rounded-4 overflow-hidden position-relative flex-column d-flex">
+              <div className=" card h-100 border-2 shadow-sm rounded-4 overflow-hidden position-relative flex-column d-flex">
                 
                 {/* 🔥 Badge visual del orden (Accedemos a a.Orden) */}
                 <span className="position-absolute top-0 end-0 badge rounded-pill bg-light text-dark m-1 shadow-sm border border-slate-100" style={{ fontSize: '9px', zIndex: 1 }}>
                   Pos: {a.Orden}
                 </span>
 
-                <div style={{ height: "110px", backgroundColor: "#f8f9fa" }}>
-                  <img src={a.Foto || "https://images.unsplash.com/photo-1507038732158-5d2bb34d7426?q=80&w=500"} className="w-100 h-100" style={{ objectFit: "contain", padding: "8px" }} alt={a.Nombre} />
+                <div style={{ height: "110px", backgroundColor: "#babdbfe1" }}>
+                  <img src={a.Foto || "https://images.unsplash.com/photo-1507038732158-5d2bb34d7426?q=80&w=500"} className="rounded-4 w-100 h-100" style={{ objectFit: "contain", padding: "2px" }} alt={a.Nombre} />
                 </div>
                 <div className="card-body p-2 flex-grow-1 d-flex flex-column">
                   <h6 className="fw-bold mb-1 text-truncate" style={{ fontSize: '13px', color: '#1a293a' }}>{a.Nombre}</h6>
@@ -166,7 +171,7 @@ export default function AreasAdmin() {
                   
                   <div className="d-flex gap-1 mt-auto">
                     <button className="btn btn-outline-primary btn-sm w-100 py-1" style={{ fontSize: '10px' }} onClick={() => prepararEdicion(a)}>Editar</button>
-                    <button className="btn btn-outline-danger btn-sm w-100 py-1" style={{ fontSize: '10px' }} onClick={() => eliminarArea(a)}>Borrar</button>
+                    <button className="btn text-white btn-sm w-100 py-1" style={{ background:"#F62440",  fontSize: '10px' }} onClick={() => eliminarArea(a)}>Borrar</button>
                   </div>
                 </div>
               </div>
@@ -232,7 +237,7 @@ export default function AreasAdmin() {
                   <input type="file" className="form-control" onChange={e => setArchivo(e.target.files[0])} accept="image/*" style={{fontSize: '13px'}} />
                 </div>
                 
-                <button type="submit" className="btn btn-primary w-100 rounded-pill fw-semibold py-2" disabled={cargando} style={{fontSize: '14px'}}>
+                <button type="submit" className="btn w-100 rounded-pill fw-semibold py-2 text-white" disabled={cargando} style={{backgroundColor:"#6E4BDB", fontSize: '14px'}}>
                   {cargando ? (
                     <>
                       <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>

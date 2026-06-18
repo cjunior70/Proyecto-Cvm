@@ -47,7 +47,7 @@ export default function ModalGestionAreas({ idServicio, areasActuales = [], load
       inputPlaceholder: "Ej: 5",
       showCancelButton: true,
       confirmButtonText: "Añadir",
-      confirmButtonColor: "#0d6efd",
+      confirmButtonColor: "#6E4BDB",
       cancelButtonText: "Cancelar",
       target: document.querySelector(targetModalSelector) || "body", // 🔥 Soluciona el bloqueo de inputs
       inputValidator: (value) => {
@@ -191,7 +191,7 @@ export default function ModalGestionAreas({ idServicio, areasActuales = [], load
             {!vistaAñadir && !loadingPadre && (
               <button 
                 type="button" 
-                className="btn btn-primary btn-sm w-100 rounded-3 fw-semibold mb-3 py-2 shadow-sm d-flex align-items-center justify-content-center gap-2"
+                className="btn bg-success btn-sm w-100 rounded-3 fw-semibold mb-3 py-2 shadow-sm d-flex align-items-center justify-content-center gap-2"
                 onClick={activarVistaAñadir}
               >
                 <span className="fs-5">+</span> Vincular Nueva Área
@@ -254,7 +254,7 @@ export default function ModalGestionAreas({ idServicio, areasActuales = [], load
                         <span className="fw-medium text-dark small">{global.Nombre}</span>
                         <button 
                           type="button" 
-                          className="btn btn-sm btn-primary rounded-3"
+                          className="btn btn-sm bg-success text-white rounded-3"
                           onClick={() => gestionarAñadirArea(global)}
                         >
                           + Agregar

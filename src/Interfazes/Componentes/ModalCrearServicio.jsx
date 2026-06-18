@@ -86,9 +86,9 @@ export default function ModalCrearServicio({ isOpen, onClose, onExito }) {
     if (paso === 1 && (!fecha || !tipo)) {
       Swal.fire({
         title: "¡Campos vacíos!",
-        text: "La Fecha y el Tipo de servicio son obligatorios, mi rey.",
+        text: "La Fecha y el Tipo de servicio son obligatorios.",
         icon: "warning",
-        confirmButtonColor: "#0d6efd"
+        confirmButtonColor:"#6E4BDB"
       });
       return;
     }
@@ -184,14 +184,14 @@ export default function ModalCrearServicio({ isOpen, onClose, onExito }) {
   const porcentajeProgreso = paso === 1 ? 33 : paso === 2 ? 66 : 100;
 
   return (
-    <div className="modal d-block show" tabIndex="-1" style={{ backgroundColor: "rgba(0,0,0,0.55)", backdropFilter: "blur(3px)", zIndex: 1060 }}>
+    <div className="modal d-block show" tabIndex="-1" style={{ backgroundColor: "rgba(0,0,0,0.55)", backdropFilter: "blur(5px)", zIndex: 1060 }}>
       <div className="modal-dialog modal-dialog-centered" style={{ maxWidth: "460px" }}>
         <div className="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
           
           {/* 📶 ENCABEZADO Y BARRA DE PROGRESO */}
           <div className="p-4 bg-white pb-2">
             <div className="d-flex justify-content-between align-items-center mb-1">
-              <span className="badge text-bg-primary rounded-pill px-2.5 py-1 fw-bold" style={{ fontSize: "0.72rem" }}>
+              <span className="badge rounded-pill px-2.5 py-1 fw-bold" style={{background:"#6E4BDB",  fontSize: "0.72rem" }}>
                 Paso {paso} de 3
               </span>
               <button type="button" className="btn-close" onClick={onClose} disabled={guardando}></button>
@@ -205,8 +205,8 @@ export default function ModalCrearServicio({ isOpen, onClose, onExito }) {
 
             <div className="progress rounded-pill" style={{ height: "6px" }}>
               <div 
-                className="progress-bar progress-bar-striped progress-bar-animated bg-primary" 
-                style={{ width: `${porcentajeProgreso}%`, transition: "width 0.3s ease-in-out" }}
+                className="progress-bar progress-bar-striped progress-bar-animated" 
+                style={{ width: `${porcentajeProgreso}%`, transition: "width 0.3s ease-in-out", background:"#60e899" }}
               ></div>
             </div>
           </div>
@@ -365,7 +365,7 @@ export default function ModalCrearServicio({ isOpen, onClose, onExito }) {
             )}
 
             {paso < 3 ? (
-              <button type="button" className="btn btn-primary rounded-3 px-4 fw-semibold" onClick={siguientePaso} disabled={cargandoAreas}>
+              <button type="button" className="btn rounded-3 px-4 fw-semibold text-white" style={{background:"#6E4BDB"}} onClick={siguientePaso} disabled={cargandoAreas}>
                 Continuar
               </button>
             ) : (

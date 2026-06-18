@@ -214,8 +214,8 @@ export default function Servicios() {
   return (
     <>
       <div
-        className="container mt-3 px-3 position-relative"
-        style={{ maxWidth: "600px", paddingBottom: "100px" }}
+        className="p-3 container mt-3 px-3 position-relative rounded-4"
+        style={{ maxWidth: "600px", paddingBottom: "100px", backgroundColor: "#F4F7FE" }}
       >
         {/* 📋 ENCABEZADO */}
         {loading ? (

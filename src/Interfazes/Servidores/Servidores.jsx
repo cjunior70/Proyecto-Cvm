@@ -41,11 +41,11 @@ export default function Servidores() {
       input: "text",
       inputValue: nombreActual,
       showCancelButton: true,
-      confirmButtonColor: "#0d6efd",
+      confirmButtonColor: "#6E4BDB",
       cancelButtonText: "Cancelar",
       confirmButtonText: "Guardar",
       inputValidator: (value) => {
-        if (!value) return "¡El nombre no puede quedar vacío, mi rey!";
+        if (!value) return "¡El nombre no puede quedar vacío";
       },
     }).then(async (result) => {
       if (result.isConfirmed) {
@@ -71,7 +71,7 @@ export default function Servidores() {
 
   return (
     <div
-      className="w-100 min-vh-100 position-relative"
+      className="w-100 min-vh-100 position-relative rounded-4"
       style={{
         backgroundColor: "#f4f6f9",
         paddingTop: "20px",
