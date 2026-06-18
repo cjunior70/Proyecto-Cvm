@@ -42,8 +42,6 @@ export const obtenerDetalleInforme = async (fechaSeleccionada) => {
         areasMapa[reg.IdArea] = {
           Id: reg.IdArea,
           Nombre: reg.NombreArea,
-          // 🔥 NUEVO: Rescatamos el orden que viene desde la consulta de la base de datos
-          // Mapeamos tanto si viene como Orden o orden
           Orden: reg.Orden !== undefined ? reg.Orden : (reg.orden !== undefined ? reg.orden : null)
         };
       }
@@ -67,23 +65,23 @@ export const obtenerDetalleInforme = async (fechaSeleccionada) => {
       }
 
       // Si el registro indica que el área está requerida en ese servicio
-      // (aunque no tenga un servidor asignado), creamos la celda.
       if (reg.EstaAsignado !== undefined) {
-        // Si no hay un titular asignado aún pero la fila existe en ServicioArea, 
-        // pasamos "VACANTE" para que el flyer pinte la alerta roja.
         const titular = reg.NombreServidor ? reg.NombreServidor.trim() : "VACANTE";
+        
+        // 🔑 Rescatamos el correo que viene de tu consulta SQL modificada
+        const correoActual = reg.CorreoServidor || reg.correoServidor || null;
 
-        // NOTA: Si en el futuro agregas lógica de apoyos en la misma fila, lo mapeas aquí.
-        // Por ahora dejamos el apoyo vacío o manejamos duplicados si la consulta trae más filas.
         if (!asignaciones[idArea][idServicio] || asignaciones[idArea][idServicio].titular === "VACANTE") {
           asignaciones[idArea][idServicio] = {
             titular: titular,
-            apoyo: "" 
+            correoTitular: correoActual, // 🔥 Agregamos el correo del titular
+            apoyo: "",
+            correoApoyo: null // Inicializa vacío
           };
         } else if (reg.NombreServidor) {
-          // Si ya había un titular y entra otra fila con un nombre distinto para el mismo servicio/área,
-          // lo asignamos de forma automática como Apoyo (➕).
+          // Si ya había un titular, la fila actual entra como Apoyo
           asignaciones[idArea][idServicio].apoyo = reg.NombreServidor;
+          asignaciones[idArea][idServicio].correoApoyo = correoActual; // 🔥 Agregamos el correo del apoyo
         }
       }
     });

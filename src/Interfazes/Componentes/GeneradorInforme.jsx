@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import html2canvas from 'html2canvas';
 import { obtenerDetalleInforme } from '../Servicios/obtenerDetalleInforme'; // Ruta normalizada
+import { notificarNuevoCronograma } from '../Servicios/emailService'; // 🔥 1. IMPORTAMOS TU SERVICIO DE EMAILJS
 import Swal from 'sweetalert2';
 
 export default function GeneradorInforme({ fechaSeleccionada, autoDisparar, alTerminar }) {
@@ -37,6 +38,51 @@ export default function GeneradorInforme({ fechaSeleccionada, autoDisparar, alTe
     }
   }, [datosReporte]);
 
+  // 🔥 2. FUNCIÓN PARA FILTRAR EL STAFF ASIGNADO Y ENVIAR LOS CORREOS
+  const procesarNotificacionStaff = async () => {
+    if (!datosReporte || !datosReporte.datosFlyer) return;
+
+    const { asignaciones } = datosReporte.datosFlyer;
+    const staffUnico = new Map();
+
+    // Recorremos la matriz estructurada del cronograma para buscar correos reales
+    Object.values(asignaciones).forEach(area => {
+      Object.values(area).forEach(info => {
+        // Validamos al encargado Titular de la celda
+        if (info && info.titular && info.titular !== "VACANTE") {
+          const correoDestino = info.correoTitular; 
+          
+          if (correoDestino && !staffUnico.has(correoDestino)) {
+            staffUnico.set(correoDestino, {
+              Nombre: info.titular,
+              Correo: correoDestino
+            });
+          }
+        }
+        
+        // Validamos si esa celda también cuenta con un Apoyo asignado
+        if (info && info.apoyo && info.apoyo !== "" && info.apoyo !== "VACANTE") {
+          const correoApoyo = info.correoApoyo;
+          if (correoApoyo && !staffUnico.has(correoApoyo)) {
+            staffUnico.set(correoApoyo, {
+              Nombre: info.apoyo,
+              Correo: correoApoyo
+            });
+          }
+        }
+      });
+    });
+
+    const listaParaEnviar = Array.from(staffUnico.values());
+
+    // Si encontramos personas reales con correo electrónico válido, disparamos EmailJS
+    if (listaParaEnviar.length > 0) {
+      await notificarNuevoCronograma(listaParaEnviar);
+    } else {
+      console.warn("⚠️ No se encontraron correos válidos asignados en este cronograma.");
+    }
+  };
+
   const procesarYCompartir = async () => {
     try {
       if (!flyerRef.current) return;
@@ -55,20 +101,30 @@ export default function GeneradorInforme({ fechaSeleccionada, autoDisparar, alTe
         const archivo = new File([blob], `cronograma-${fechaSeleccionada}.png`, { type: blob.type });
         Swal.close();
 
+        // CASO A: Dispositivo Móvil (Compartir por WhatsApp, Telegram, etc.)
         if (navigator.canShare && navigator.canShare({ files: [archivo] })) {
           await navigator.share({
             files: [archivo],
             title: 'Equipo Producción',
             text: `📋 Cronograma organizado del ${fechaSeleccionada}.`
           });
+          
+          // 🚀 SE DISPARAN LOS CORREOS AUTOMÁTICAMENTE TRAS COMPARTIR EN CELULAR
+          await procesarNotificacionStaff();
+
+        // CASO B: Computadora / Navegador de escritorio (Descarga directa del .png)
         } else {
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = url;
           a.download = `cronograma-${fechaSeleccionada}.png`;
           a.click();
-          Swal.fire("¡Listo!", "La imagen ha sido descargada.", "success");
+          
+          // 🚀 SE DISPARAN LOS CORREOS AUTOMÁTICAMENTE TRAS LA DESCARGA EN PC
+          await procesarNotificacionStaff();
         }
+        
+        // Terminamos el flujo principal del componente padre
         alTerminar();
       }, 'image/png');
     } catch (error) {
@@ -92,7 +148,6 @@ export default function GeneradorInforme({ fechaSeleccionada, autoDisparar, alTe
     return fechaObj.toLocaleDateString("es-ES", { month: "long", year: "numeric" }).toUpperCase();
   };
 
-  // 🔥 NUEVA FUNCIÓN PARA TRAER EL NOMBRE DEL DÍA DE FORMA AUTOMÁTICA
   const obtenerNombreDiaReal = (fechaStr) => {
     const parts = fechaStr.split("-");
     const fechaObj = new Date(parts[0], parts[1] - 1, parts[2]);
@@ -109,7 +164,6 @@ export default function GeneradorInforme({ fechaSeleccionada, autoDisparar, alTe
   const widthAreas = '260px'; 
 
   return (
-    /* CONTENEDOR INTEGRAL (Si te daba error en blanco, asegúrate que el componente padre no use display: none) */
     <div 
       ref={flyerRef} 
       style={{ 
@@ -151,7 +205,7 @@ export default function GeneradorInforme({ fechaSeleccionada, autoDisparar, alTe
         </div>
       </div>
 
-      {/* 🗓️ ENCABEZADOS DE LAS JORNADAS (HORARIOS DEDUPED) */}
+      {/* 🗓️ ENCABEZADOS DE LAS JORNADAS */}
       <div style={{ display: 'flex', gap: '16px', marginBottom: '16px', alignItems: 'flex-end' }}>
         <div style={{ width: widthAreas, flexShrink: 0 }}></div> 
         
@@ -165,7 +219,6 @@ export default function GeneradorInforme({ fechaSeleccionada, autoDisparar, alTe
             textAlign: 'center',
             boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
           }}>
-            {/* ✅ REEMPLAZADO: Ahora lee dinámicamente el día correcto de la semana */}
             <span style={{ fontSize: '15px', fontWeight: 'bold', letterSpacing: '1px', textTransform: 'uppercase', display: 'block' }}>
               {obtenerNombreDiaReal(fechaSeleccionada)}
             </span>
