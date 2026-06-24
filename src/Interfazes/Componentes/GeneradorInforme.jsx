@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import html2canvas from 'html2canvas';
 import { obtenerDetalleInforme } from '../Servicios/obtenerDetalleInforme'; // Ruta normalizada
-import { notificarNuevoCronograma } from '../Servicios/emailService'; // 🔥 1. IMPORTAMOS TU SERVICIO DE EMAILJS
 import Swal from 'sweetalert2';
 
 export default function GeneradorInforme({ fechaSeleccionada, autoDisparar, alTerminar }) {
@@ -72,15 +71,6 @@ export default function GeneradorInforme({ fechaSeleccionada, autoDisparar, alTe
         }
       });
     });
-
-    const listaParaEnviar = Array.from(staffUnico.values());
-
-    // Si encontramos personas reales con correo electrónico válido, disparamos EmailJS
-    if (listaParaEnviar.length > 0) {
-      await notificarNuevoCronograma(listaParaEnviar);
-    } else {
-      console.warn("⚠️ No se encontraron correos válidos asignados en este cronograma.");
-    }
   };
 
   const procesarYCompartir = async () => {
