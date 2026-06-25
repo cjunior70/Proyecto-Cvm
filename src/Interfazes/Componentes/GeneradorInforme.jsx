@@ -151,6 +151,33 @@ export default function GeneradorInforme({ fechaSeleccionada, autoDisparar, alTe
     return ordenA - ordenB;
   });
 
+  // 🔥 ORDENAR SERVICIOS CRONOLÓGICAMENTE (AM primero, luego PM)
+  const serviciosOrdenados = [...servicios].sort((a, b) => {
+    // Función auxiliar para extraer una hora comparable (ej: "7:00 PM" -> 19.00)
+    const mapearHora = (jornadaStr) => {
+      if (!jornadaStr) return 0;
+      
+      // Extraemos los números y si es AM/PM
+      const limpio = jornadaStr.toUpperCase().trim();
+      const esPM = limpio.includes("PM");
+      
+      // Obtenemos solo los números (ej: "7:30" o "7")
+      const coincidenciaHora = limpio.match(/(\d+)(?::(\d+))?/);
+      if (!coincidenciaHora) return 0;
+      
+      let horas = parseInt(coincidenciaHora[1], 10);
+      const minutos = coincidenciaHora[2] ? parseInt(coincidenciaHora[2], 10) : 0;
+      
+      // Ajuste para formato de 24 horas
+      if (esPM && horas < 12) horas += 12;
+      if (!esPM && horas === 12) horas = 0; // 12 AM es medianoche
+      
+      return horas + (minutos / 60);
+    };
+
+    return mapearHora(a.Jornada) - mapearHora(b.Jornada);
+  });
+
   const widthAreas = '260px'; 
 
   return (
@@ -195,11 +222,11 @@ export default function GeneradorInforme({ fechaSeleccionada, autoDisparar, alTe
         </div>
       </div>
 
-      {/* 🗓️ ENCABEZADOS DE LAS JORNADAS */}
+      {/* 🗓️ ENCABEZADOS DE LAS JORNADAS (USANDO serviciosOrdenados) */}
       <div style={{ display: 'flex', gap: '16px', marginBottom: '16px', alignItems: 'flex-end' }}>
         <div style={{ width: widthAreas, flexShrink: 0 }}></div> 
         
-        {servicios.map((serv) => (
+        {serviciosOrdenados.map((serv) => (
           <div key={serv.Id} style={{ 
             flex: 1, 
             backgroundColor: '#3b82f6', 
@@ -252,8 +279,8 @@ export default function GeneradorInforme({ fechaSeleccionada, autoDisparar, alTe
                 </h3>
               </div>
 
-              {/* Columnas de Asignaciones por Servicio */}
-              {servicios.map((servicio) => {
+              {/* Columnas de Asignaciones por Servicio (USANDO serviciosOrdenados) */}
+              {serviciosOrdenados.map((servicio) => {
                 const asignacion = asignaciones[area.Id]?.[servicio.Id];
                 const esInexistente = !asignacion;
                 const esVacante = asignacion && asignacion.titular === "VACANTE";
